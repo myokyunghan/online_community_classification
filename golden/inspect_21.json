@@ -1,0 +1,94 @@
+{
+  "id": "21",
+  "title": "비대면 상황에서의 온라인 커뮤니티 활동이 삶 만족도에 미치는 영향: 코로나19 이전(2017년)과 이후(2021년) 비교를 중심으로",
+  "class1_raw": "ROLE_FIELD_SOCIALCAPITAL",
+  "class2_raw": "",
+  "model_response": {
+    "focus": "이 논문은 코로나19 이전과 이후의 온라인 커뮤니티 활동이 사회적 자본(결속적 관계)을 통해 삶의 만족도에 미치는 영향을 연령과 시기별로 비교 분석하며, 온라인 활동이 신뢰·연대·네트워크 같은 관계적 자원을 형성하고 이를 통해 삶의 질에 기여하는 과정을 실증적으로 탐구한다.",
+    "audit": [
+      {
+        "code": "ROLE_FIELD_PUBLICSPHERE",
+        "quote": null,
+        "prob": 0.08,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_FIELD_SOCIALCAPITAL",
+        "quote": "사회적 자본 관점에서 온라인 커뮤니티 활동과 삶의 만족도에 미치는 영향... 결속적 온라인 활동을 많이 할수록 삶의 만족도에 정(+)의 영향을 미치고... 인적 네트워크 형성과 사회자본 축적의 가능성을 제시",
+        "prob": 0.87,
+        "verdict": "부여"
+      },
+      {
+        "code": "ROLE_WINDOW_POLARIZE",
+        "quote": null,
+        "prob": 0.03,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_GENDER",
+        "quote": null,
+        "prob": 0.02,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_HATE",
+        "quote": null,
+        "prob": 0.02,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_MISC",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_SUBSCRIPTION",
+        "quote": null,
+        "prob": 0.04,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_GOVERNANCE",
+        "quote": null,
+        "prob": 0.03,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_DEMOGRAPHIC",
+        "quote": "연령과 시기를 비교분석하였다... 연령의 조절 효과는 결속적 온라인 활동에서만 통계적으로 유의하게 삶의 만족도에 영향을 미치는 것으로 나타났다",
+        "prob": 0.61,
+        "verdict": "부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_LIFECYCLE",
+        "quote": null,
+        "prob": 0.04,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_ONLINE_ANNONIMITY",
+        "quote": null,
+        "prob": 0.03,
+        "verdict": "미부여"
+      }
+    ],
+    "rationale": "이 논문은 온라인 커뮤니티 활동이 결속적 사회적 자본을 통해 삶의 만족도에 긍정적 영향을 미친다는 주장을 실증적으로 뒷받침하며, 연령이라는 인구통계적 특성이 이 관계에 조절 효과를 갖는다는 점을 강조하여, 커뮤니티 활동의 효과가 특정 인구집단에서 다르게 작동함을 분석한다.",
+    "role": [
+      {
+        "code": "ROLE_FIELD_SOCIALCAPITAL",
+        "prob": 0.87,
+        "evidence": "사회적 자본 관점에서 온라인 커뮤니티 활동과 삶의 만족도에 미치는 영향... 결속적 온라인 활동을 많이 할수록 삶의 만족도에 정(+)의 영향을 미치고... 인적 네트워크 형성과 사회자본 축적의 가능성을 제시"
+      }
+    ],
+    "env": [
+      {
+        "code": "ENV_COMMUNITY_DEMOGRAPHIC",
+        "prob": 0.61,
+        "evidence": "연령과 시기를 비교분석하였다... 연령의 조절 효과는 결속적 온라인 활동에서만 통계적으로 유의하게 삶의 만족도에 영향을 미치는 것으로 나타났다"
+      }
+    ],
+    "status": "OK",
+    "_dropped_by_cap": []
+  }
+}

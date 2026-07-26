@@ -1,0 +1,95 @@
+{
+  "id": "10",
+  "title": "극우주의의 프레임과 감정 정치: 언어네트워크방법론을 통한 일베커뮤니티 분석",
+  "class1_raw": "ROLE_WINDOW_POLARIZE",
+  "class2_raw": "",
+  "model_response": {
+    "focus": "이 논문은 일베 커뮤니티의 게시글을 분석하여, 타자에 대한 분노와 혐오를 생산하는 도덕적 프레임의 구성과 재편성 과정을 밝히고, 그 프레임이 정치적 양극화와 젠더 갈등을 어떻게 매개하는지 설명한다.",
+    "audit": [
+      {
+        "code": "ROLE_FIELD_DISCOURSE",
+        "quote": "일베가 등장하는 맥락에 대해 알아보고, 불평등한 현실 속에서 수치심을 이유 있는 분노로 전환하기 위한 프레임의 생산, 그리고 다양한 사회적 위치의 사람들을 동원하기 위한 프레임의 재편성에 대해 살펴본다.",
+        "prob": 0.42,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_FIELD_SOCIALCAPITAL",
+        "quote": null,
+        "prob": 0.08,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_POLARIZE",
+        "quote": "일베는 박정희를 통해 자신의 집단의 도덕적 가치를 ‘충성(loyalty)’으로, 진보세력을 종북과 등치시키며 ‘배신(betrayal)’으로 프레임하며 타자화한다.",
+        "prob": 0.75,
+        "verdict": "부여"
+      },
+      {
+        "code": "ROLE_WINDOW_GENDER",
+        "quote": "일베는 자신들의 사회운동을 확장하기 위해 남녀 간 대결구도로 프레임을 재편성하는데, 자신들을 사회적 변동 과정에서 생성된 피해자인 반면 여성들은 무임승차하고 특권을 누려온 집단으로 묘사함으로써 배려(care)와 공정성(fairness)의 도덕을 동원한다.",
+        "prob": 0.81,
+        "verdict": "부여"
+      },
+      {
+        "code": "ROLE_WINDOW_HATE",
+        "quote": "본 논문은 한국사회에서 젊은 극우 집단으로 지칭되는 일베를 통해 타자에 대한 분노와 혐오의 감정이 확산되는 과정을 보고자 하였다.",
+        "prob": 0.89,
+        "verdict": "부여"
+      },
+      {
+        "code": "ROLE_WINDOW_MISC",
+        "quote": null,
+        "prob": 0.12,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_SUBSCRIPTION",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_GOVERNANCE",
+        "quote": null,
+        "prob": 0.04,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_DEMOGRAPHIC",
+        "quote": null,
+        "prob": 0.03,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_LIFECYCLE",
+        "quote": null,
+        "prob": 0.06,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_ONLINE_ANNONIMITY",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      }
+    ],
+    "rationale": "이 논문은 일베 커뮤니티의 게시글을 통해 혐오 표현의 확산(WINDOW_HATE), 정치적 양극화 프레임(WINDOW_POLARIZE), 젠더 갈등 구조(WINDOW_GENDER)를 분석하며, 이 세 가지 사회현상이 커뮤니티 내 프레임 구성과 감정 정치를 통해 어떻게 연결되는지를 핵심적으로 조명한다.",
+    "role": [
+      {
+        "code": "ROLE_WINDOW_HATE",
+        "prob": 0.89,
+        "evidence": "본 논문은 한국사회에서 젊은 극우 집단으로 지칭되는 일베를 통해 타자에 대한 분노와 혐오의 감정이 확산되는 과정을 보고자 하였다."
+      },
+      {
+        "code": "ROLE_WINDOW_GENDER",
+        "prob": 0.81,
+        "evidence": "일베는 자신들의 사회운동을 확장하기 위해 남녀 간 대결구도로 프레임을 재편성하는데, 자신들을 사회적 변동 과정에서 생성된 피해자인 반면 여성들은 무임승차하고 특권을 누려온 집단으로 묘사함으로써 배려(care)와 공정성(fairness)의 도덕을 동원한다."
+      }
+    ],
+    "env": [],
+    "status": "OK",
+    "_dropped_by_cap": [
+      "ROLE_WINDOW_POLARIZE"
+    ]
+  }
+}

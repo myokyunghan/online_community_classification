@@ -1,0 +1,88 @@
+{
+  "id": "6",
+  "title": "게시글의 높은 추천 수는 커뮤니티 내 여론을 의미하는가?: 에펨코리아(FMkorea)의 게시글에 참여한 이용자 다양성과 추천 수의 관계",
+  "class1_raw": "ROLE_FIELD_DISCOURSE",
+  "class2_raw": "",
+  "model_response": {
+    "focus": "이 논문은 에펨코리아의 게시글과 댓글을 분석하여, 다양한 사용자 집단의 균등한 참여와 논쟁 주도가 추천 수에 미치는 영향을 탐색함으로써, 추천 체계가 커뮤니티 내 여론 형성 메커니즘으로서 어떻게 기능하는지를 밝히고, 그 과정에서 공론장으로서의 잠재력과 한계를 논의한다.",
+    "audit": [
+      {
+        "code": "ROLE_FIELD_DISCOURSE",
+        "quote": "균등한 논의 참가가 추천 투표수에 미치는 효과는 비적대적인 정치 참여 주제에서만 유의미한 반면, 다양한 집단의 견해가 균등하게 존중 받거나 논쟁을 주도하는 경우에는 논의 주제와 상관없이 추천 투표수가 증가하였다. 분석 결과를 바탕으로 온라인 커뮤니티의 추천 체계가 커뮤니티 내 포괄적 여론 형성에 미치는 영향과 공론장으로서 온라인 커뮤니티가 갖는 잠재력 및 한계에 대해 논의하였다.",
+        "prob": 0.87,
+        "verdict": "부여"
+      },
+      {
+        "code": "ROLE_FIELD_SOCIALCAPITAL",
+        "quote": null,
+        "prob": 0.12,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_POLARIZE",
+        "quote": null,
+        "prob": 0.08,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_GENDER",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_HATE",
+        "quote": null,
+        "prob": 0.06,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_MISC",
+        "quote": null,
+        "prob": 0.07,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_SUBSCRIPTION",
+        "quote": null,
+        "prob": 0.04,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_GOVERNANCE",
+        "quote": null,
+        "prob": 0.03,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_DEMOGRAPHIC",
+        "quote": "작성된 댓글을 기반으로 주요 관심 분야 및 커뮤니티 내 영향력의 측면에서 서로 구분되는 6개의 정체성 집단을 식별하였다.",
+        "prob": 0.15,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_LIFECYCLE",
+        "quote": null,
+        "prob": 0.03,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_ONLINE_ANNONIMITY",
+        "quote": null,
+        "prob": 0.04,
+        "verdict": "미부여"
+      }
+    ],
+    "rationale": "이 논문은 온라인 커뮤니티 내에서 추천 체계가 다양한 사용자 집단의 의견이 상호작용하며 여론을 형성하는 과정을 분석함으로써, 공론장으로서의 기능을 중심적으로 탐구하며, 이는 ROLE_FIELD_DISCOURSE에 명확히 부합한다.",
+    "role": [
+      {
+        "code": "ROLE_FIELD_DISCOURSE",
+        "prob": 0.87,
+        "evidence": "균등한 논의 참가가 추천 투표수에 미치는 효과는 비적대적인 정치 참여 주제에서만 유의미한 반면, 다양한 집단의 견해가 균등하게 존중 받거나 논쟁을 주도하는 경우에는 논의 주제와 상관없이 추천 투표수가 증가하였다. 분석 결과를 바탕으로 온라인 커뮤니티의 추천 체계가 커뮤니티 내 포괄적 여론 형성에 미치는 영향과 공론장으로서 온라인 커뮤니티가 갖는 잠재력 및 한계에 대해 논의하였다."
+      }
+    ],
+    "env": [],
+    "status": "OK",
+    "_dropped_by_cap": []
+  }
+}

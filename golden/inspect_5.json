@@ -1,0 +1,81 @@
+{
+  "id": "5",
+  "title": "인터넷 커뮤니티 활동이 윤리적 소비 참여에 미치는 영향: 온라인 사회자본과 공감 경험의 역할을 중심으로",
+  "class1_raw": "ROLE_FIELD_SOCIALCAPITAL",
+  "class2_raw": "",
+  "model_response": {
+    "focus": "이 논문은 온라인 커뮤니티를 온라인 사회자본과 공감 경험을 형성하는 공간으로 전제하고, 그 자원이 윤리적 소비 의향으로 이어지는 경로를 분석한다.",
+    "audit": [
+      {
+        "code": "ROLE_FIELD_DISCOURSE",
+        "quote": null,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_FIELD_SOCIALCAPITAL",
+        "quote": "인터넷 커뮤니티에서 더 적극적으로 자신을 표현하고 타인의 글에 반응할수록 온라인상의 결속적 사회자본과 교량적 사회자본에 대한 지각 수준이 모두 높아지며",
+        "verdict": "부여"
+      },
+      {
+        "code": "ROLE_WINDOW_POLARIZE",
+        "quote": null,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_GENDER",
+        "quote": null,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_HATE",
+        "quote": null,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_MISC",
+        "quote": "윤리적 소비 참여 의향에 영향을 미치는지 규명하는 것이다... 구매‧불매운동과 착한 소비(공정무역‧친환경‧로컬상품 구입)에 대해서 교차 확인되었으며",
+        "verdict": "부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_SUBSCRIPTION",
+        "quote": null,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_GOVERNANCE",
+        "quote": null,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_DEMOGRAPHIC",
+        "quote": "20대-30대 청년층의 인터넷 커뮤니티 이용",
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_LIFECYCLE",
+        "quote": null,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_ONLINE_ANNONIMITY",
+        "quote": null,
+        "verdict": "미부여"
+      }
+    ],
+    "role": [
+      {
+        "code": "ROLE_FIELD_SOCIALCAPITAL",
+        "prob": 0.95,
+        "evidence": "인터넷 커뮤니티에서 더 적극적으로 자신을 표현하고 타인의 글에 반응할수록 온라인상의 결속적 사회자본과 교량적 사회자본에 대한 지각 수준이 모두 높아지며"
+      },
+      {
+        "code": "ROLE_WINDOW_MISC",
+        "prob": 0.85,
+        "evidence": "윤리적 소비 참여 의향에 영향을 미치는지 규명하는 것이다... 구매‧불매운동과 착한 소비(공정무역‧친환경‧로컬상품 구입)에 대해서 교차 확인되었으며"
+      }
+    ],
+    "env": [],
+    "status": "OK",
+    "rationale": "온라인 커뮤니티는 사회자본 형성의 공간으로 분석되며, 그 결과로 윤리적 소비라는 외부 사회현상(착한 소비, 공정무역 등)이 설명된다. 두 코드 모두 초점 요약과 정합적이며, ENV 코드는 비교 분석 없이 단일 집단의 속성만 언급되어 부여되지 않는다."
+  }
+}

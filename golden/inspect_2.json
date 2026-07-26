@@ -1,0 +1,53 @@
+{
+  "id": "2",
+  "title": "온라인 커뮤니티 활동이 신뢰반경에 미치는 양면적 효과",
+  "class1_raw": "공개 접근",
+  "class2_raw": "사회자본",
+  "model_response": {
+    "paper_title": "온라인 커뮤니티 활동이 신뢰반경에 미치는 양면적 효과",
+    "online_community_object": {
+      "community_name": "정보 없음",
+      "community_unit": "온라인 커뮤니티",
+      "research_data": "온라인 조사를 통해 수집된 1,104명의 온라인 커뮤니티 사용자 데이터"
+    },
+    "research_question_summary": "온라인 커뮤니티 활동이 신뢰반경에 미치는 양면적 효과를 경험적으로 확인하고, 커뮤니티의 익명성 수준에 따라 각 효과의 정도에 차이가 있는지 검증",
+    "object_analytical_status": "관계·자원 생산 공간",
+    "primary_classification": {
+      "top_category": "역할적 특성",
+      "subcategory": "관계·자원 형성의 장",
+      "reason": "온라인 커뮤니티 활동이 신뢰반경에 미치는 양면적 효과를 경험적으로 확인하고, 커뮤니티의 익명성 수준에 따라 각 효과의 정도에 차이가 있는지 검증",
+      "evidence": [
+        "온라인 커뮤니티 활동은 온라인 커뮤니티 소속감을 높여 낯선 사람에 대한 사회적 거리감을 낮추게 되며, 그 결과 신뢰반경을 넓힌다.",
+        "온라인 커뮤니티 활동이 낯선 사람에 대한 사회적 거리감에 부정적 영향을 주어 신뢰반경을 좁히는 결과도 확인"
+      ]
+    },
+    "secondary_classifications": [
+      {
+        "top_category": "환경적 특성",
+        "subcategory": "제도·운영적 특성",
+        "reason": "회원제 커뮤니티와 비회원제 커뮤니티에 따라 양면적 효과가 다르게 나타날 수 있다.",
+        "evidence": [
+          "조절된 매개효과 결과, 신뢰반경을 넓히는 간접효과는 회원제 커뮤니티에서만 통계적으로 유의미 한 것으로 나타났다."
+        ]
+      }
+    ],
+    "classification_boundary": {
+      "closest_competing_category": "창",
+      "distinction_reason": "온라인 커뮤니티 활동이 신뢰반경에 미치는 효과를 설명하는 것이 주 목적이기 때문에 관계·자원 형성의 장이 우선"
+    },
+    "excluded_possible_categories": [
+      {
+        "subcategory": "담론·숙의 형성의 장",
+        "reason_for_exclusion": "온라인 커뮤니티 활동이 신뢰반경에 미치는 효과를 설명하는 것이 주 목적이기 때문에 담론·숙의 형성의 장은 제외"
+      }
+    ],
+    "confidence": {
+      "level": "중간",
+      "score": 0.75,
+      "reason": "연구 목적과 연구 질문이 명확하지만, 일부 본문만 제공되어 주 분류는 가능하지만 세부적인 우선순위에 불확실성이 있다."
+    },
+    "additional_information_needed": [
+      "온라인 커뮤니티 활동과 신뢰반경의 관계를 더 깊이 이해하기 위해, 온라인 커뮤니티 활동의 유형과 내용에 대한 정보"
+    ]
+  }
+}

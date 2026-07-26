@@ -1,0 +1,55 @@
+{
+  "id": "9",
+  "title": "한국 결혼식 문화 속에서 개인과 가족의 인상 관리와 감정 수행성 체계: 온라인 커뮤니티 사례를 중심으로",
+  "class1_raw": "익명성",
+  "class2_raw": "이 외(창)",
+  "model_response": {
+    "paper_title": "한국 결혼식 문화 속에서 개인과 가족의 인상 관리와 감정 수행성 체계: 온라인 커뮤니티 사례를 중심으로",
+    "online_community_object": {
+      "community_name": "정보 없음",
+      "community_unit": "정보 없음",
+      "research_data": "온라인 커뮤니티 게시글"
+    },
+    "research_question_summary": "한국 결혼식 문화에서 개인과 가족의 인상 관리와 감정 수행성 체계를 온라인 커뮤니티 사례를 통해 분석",
+    "object_analytical_status": "담론·숙의 형성의 장",
+    "primary_classification": {
+      "top_category": "역할적 특성",
+      "subcategory": "담론·숙의 형성의 장",
+      "reason": "온라인 커뮤니티에서 개인과 가족의 인상 관리와 감정 수행성 체계가 형성되는 과정을 분석",
+      "evidence": [
+        "연구 목적: 한국 결혼식 문화에서 개인과 가족의 인상 관리와 감정 수행성 체계를 분석",
+        "분석 결과: 온라인 커뮤니티에서 역할 대행과 감정 연기가 나타남"
+      ]
+    },
+    "secondary_classifications": [
+      {
+        "top_category": "역할적 특성",
+        "subcategory": "창",
+        "reason": "온라인 커뮤니티를 통해 한국 결혼식 문화의 사회현상을 설명",
+        "evidence": [
+          "연구 목적: 한국 결혼식 문화에서 개인과 가족의 인상 관리와 감정 수행성 체계를 분석",
+          "분석 결과: 온라인 커뮤니티에서 나타나는 역할 대행과 감정 연기가 한국 결혼식 문화의 사회현상을 반영"
+        ]
+      }
+    ],
+    "classification_boundary": {
+      "closest_competing_category": "관계·자원 형성의 장",
+      "distinction_reason": "온라인 커뮤니티에서 개인과 가족의 인상 관리와 감정 수행성 체계가 형성되는 과정이 관계 형성과 구별"
+    },
+    "excluded_possible_categories": [
+      {
+        "subcategory": "매체·공간적 특성",
+        "reason_for_exclusion": "온라인 커뮤니티의 기술적 특성이 분석 대상이 아님"
+      }
+    ],
+    "confidence": {
+      "level": "중간",
+      "score": 0.75,
+      "reason": "연구 목적과 분석 결과가 일관되게 지지하지만, 일부 인접 범주와 중첩"
+    },
+    "additional_information_needed": [
+      "온라인 커뮤니티의 구체적인 운영 규칙이나 기술적 특성",
+      "개인과 가족의 인상 관리와 감정 수행성 체계가 온라인 커뮤니티 밖으로 확장되는지"
+    ]
+  }
+}

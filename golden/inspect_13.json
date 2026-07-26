@@ -1,0 +1,54 @@
+{
+  "id": "13",
+  "title": "메갈리아의 두 딸들: 익명성 수준에 따른 온라인 커뮤니티의 정체성 분화",
+  "class1_raw": "커뮤니티 생애주기",
+  "class2_raw": "익명성",
+  "model_response": {
+    "paper_title": "메갈리아의 두 딸들: 익명성 수준에 따른 온라인 커뮤니티의 정체성 분화",
+    "online_community_object": {
+      "community_name": "메갈리아",
+      "community_unit": "온라인 커뮤니티",
+      "research_data": "게시글"
+    },
+    "research_question_summary": "익명성 수준에 따라 온라인 커뮤니티의 정체성이 어떻게 달라지는가",
+    "object_analytical_status": "매체·기술 환경",
+    "primary_classification": {
+      "top_category": "환경적 특성",
+      "subcategory": "매체·공간적 특성",
+      "reason": "익명성 수준이 핵심 설명변수",
+      "evidence": [
+        "익명성 수준에 따라 담론 내용의 차이가 분석됨",
+        "완전 익명과 부분 익명 게시물의 담론 차이를 비교"
+      ]
+    },
+    "secondary_classifications": [
+      {
+        "top_category": "역할적 특성",
+        "subcategory": "담론·숙의 형성의 장",
+        "reason": "익명성 수준에 따라 담론이 생성·교환·강화되는 과정이 분석됨",
+        "evidence": [
+          "담론 내용의 차이가 익명성 수준에 따라 달라짐",
+          "내부 갈등의 전개 양상이 재구성됨"
+        ]
+      }
+    ],
+    "classification_boundary": {
+      "closest_competing_category": "관계·자원 형성의 장",
+      "distinction_reason": "익명성 수준이 담론 차이에 미치는 영향이 핵심"
+    },
+    "excluded_possible_categories": [
+      {
+        "subcategory": "창",
+        "reason_for_exclusion": "커뮤니티 자체의 정체성 분화가 핵심"
+      }
+    ],
+    "confidence": {
+      "level": "높음",
+      "score": 0.95,
+      "reason": "연구 목적, 연구 질문, 분석 결과 및 결론이 일관되게 매체·공간적 특성을 지지"
+    },
+    "additional_information_needed": [
+      "익명성 수준에 따른 정체성 분화의 장기적 영향"
+    ]
+  }
+}

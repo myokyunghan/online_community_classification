@@ -1,0 +1,88 @@
+{
+  "id": "4",
+  "title": "청년 불안정 노동자의 자본주의 미시세계: 물류센터와 편의점의 노동체험 서사에 대한 질적 내용분석",
+  "class1_raw": "ROLE_WINDOW_MISC",
+  "class2_raw": "",
+  "model_response": {
+    "focus": "이 논문은 온라인 커뮤니티에 게시된 물류센터와 편의점 청년 노동자들의 노동체험 서사를 자료로 삼아, 그 서사 속에 드러난 노동통제 체제, 갈등과 연대의 사회관계, 계급적 정체성 형성 과정을 분석하며, 이는 외부의 불안정 노동 구조와 계급 인식의 미시적 작동을 조명하는 사례로 기능한다.",
+    "audit": [
+      {
+        "code": "ROLE_FIELD_PUBLICSPHERE",
+        "quote": null,
+        "prob": 0.08,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_FIELD_SOCIALCAPITAL",
+        "quote": null,
+        "prob": 0.12,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_POLARIZE",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_GENDER",
+        "quote": null,
+        "prob": 0.03,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_HATE",
+        "quote": null,
+        "prob": 0.04,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_MISC",
+        "quote": "이 연구는 청년 불안정 노동자들이 많이 참여하는 온라인 커뮤니티에 게시된 물류센터 및 편의점 종사자들의 노동체험 서사를 분석대상으로 하여... 노동자들의 잉여노동을 극대화하는 노동통제 체제, 노동현장에서 적대와 연대의 사회관계, 그리고 일과 일터에 대한 인식과 계급적 정체성을 고찰했다.",
+        "prob": 0.87,
+        "verdict": "부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_SUBSCRIPTION",
+        "quote": null,
+        "prob": 0.06,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_GOVERNANCE",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_DEMOGRAPHIC",
+        "quote": null,
+        "prob": 0.07,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_LIFECYCLE",
+        "quote": null,
+        "prob": 0.04,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_ONLINE_ANNONIMITY",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      }
+    ],
+    "rationale": "이 논문은 온라인 커뮤니티 게시글을 외부 사회현상인 불안정 노동과 계급 인식의 미시적 작동을 분석하는 사례로 활용하며, 이는 WINDOW_MISC에 가장 부합하며, 그 외 모든 코드는 근거가 부족하다.",
+    "role": [
+      {
+        "code": "ROLE_WINDOW_MISC",
+        "prob": 0.87,
+        "evidence": "이 연구는 청년 불안정 노동자들이 많이 참여하는 온라인 커뮤니티에 게시된 물류센터 및 편의점 종사자들의 노동체험 서사를 분석대상으로 하여... 노동자들의 잉여노동을 극대화하는 노동통제 체제, 노동현장에서 적대와 연대의 사회관계, 그리고 일과 일터에 대한 인식과 계급적 정체성을 고찰했다."
+      }
+    ],
+    "env": [],
+    "status": "OK",
+    "_dropped_by_cap": []
+  }
+}
