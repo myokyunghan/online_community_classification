@@ -20,14 +20,37 @@ from pathlib import Path
 from openai import OpenAI
 
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-MODEL = "qwen/qwen3-next-80b-a3b-instruct"
+# MODEL = "qwen/qwen3-next-80b-a3b-instruct"  # 2026-07-27 end of life로 사용 불가 (Qwen 계열 전체가 카탈로그에서 빠짐)
+# MODEL = "meta/llama-3.3-70b-instruct"  # dense 70B라 논문 693편 처리하기엔 너무 느림
+# MODEL = "nvidia/nemotron-3-nano-30b-a3b"  # 속도는 빠르나 FIELD/WINDOW 축을 자주 혼동해 golden 정확도가 낮음(2/9)
+# MODEL = "nvidia/nemotron-3-super-120b-a12b"  # thinking on/off 모두 스키마 준수가 불안정(사고 누출/audit이 객체로 나옴/필드 누락/딴 스키마 등 네 가지 실패 유형)
+# MODEL = "nvidia/llama-3.1-nemotron-70b-instruct"  # /v1/models엔 있으나 이 계정에 실제 호출 권한 없음 (404 Function Not Found)
+# MODEL = "moonshotai/kimi-k2.6"
+# MODEL = "nvidia/llama-3.3-nemotron-super-49b-v1.5"  # PUBLICSPHERE/MISC 혼동이 nano 모델과 동일하게 재발 (id=12,8,18) -- 프롬프트 경계사례 의심
+# MODEL = "nvidia/nemotron-3-ultra-550b-a55b"  # Nemotron-3 계열 전체가 크기 무관하게 요청 스키마를 무시하고 자체 스키마를 생성함
+# MODEL = "mistralai/mistral-medium-3.5-128b"
+MODEL = "openai/gpt-oss-120b"  # harmony 포맷 추론모델. reasoning_effort로 사고 비중 조절, structured output 네이티브 지원
 TEMPLATE_PATH = Path(__file__).parent / "prompt_template.txt"
 
+# 이 모델은 reasoning on/off를 chat_template_kwargs가 아니라 system 메시지 내용으로 제어하며,
+# 문서상 "모든 지시사항은 user 프롬프트에 담아야 한다"고 명시돼 있어 system/user 분리 방식이 다르다.
+NEMOTRON_SUPER_LLAMA_MODELS = {"nvidia/llama-3.3-nemotron-super-49b-v1.5"}
 
-def build_messages(paper_text: str) -> list[dict]:
-    """분류 지침은 system 메시지로, 논문 내용은 user 메시지로 분리한다."""
+
+def build_messages(paper_text: str, model: str) -> list[dict]:
+    """분류 지침은 system 메시지로, 논문 내용은 user 메시지로 분리한다.
+
+    단, Llama-3.3-Nemotron-Super 계열은 system 메시지를 reasoning on/off 스위치로만 쓰고
+    지시사항은 전부 user 메시지에 담아야 하므로 예외적으로 다르게 구성한다."""
     template = TEMPLATE_PATH.read_text(encoding="utf-8")
     instructions, _, trailer = template.partition("{{PAPER_TEXT}}")
+
+    if model in NEMOTRON_SUPER_LLAMA_MODELS:
+        return [
+            {"role": "system", "content": "detailed thinking off"},
+            {"role": "user", "content": instructions.rstrip() + "\n\n" + paper_text + trailer},
+        ]
+
     return [
         {"role": "system", "content": instructions.rstrip()},
         {"role": "user", "content": paper_text + trailer},
@@ -84,14 +107,16 @@ def derive_role_env_from_audit(parsed: dict) -> dict:
     return parsed
 
 
-def classify_paper(paper_text: str, model: str, api_key: str) -> str:
+def classify_paper(paper_text: str, model: str, api_key: str, temperature: float = 0.0) -> str:
     client = OpenAI(base_url=NVIDIA_BASE_URL, api_key=api_key)
 
     response = client.chat.completions.create(
         model=model,
-        messages=build_messages(paper_text),
-        temperature=0.0,
+        messages=build_messages(paper_text, model),
+        temperature=temperature,
         max_tokens=8192,
+        response_format={"type": "json_object"},
+        extra_body={"reasoning_effort": "low"},
     )
     return response.choices[0].message.content
 

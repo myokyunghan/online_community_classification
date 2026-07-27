@@ -121,8 +121,8 @@ def extract_axis_codes(parsed: dict, axis: str, valid: set) -> list[str]:
     return [item.get("code", "").strip() for item in items if item.get("code", "").strip() in valid]
 
 
-def classify_row(row: dict, api_key: str) -> dict:
-    raw_output = classify_paper(build_paper_text(row), MODEL, api_key)
+def classify_row(row: dict, api_key: str, temperature: float = 0.0) -> dict:
+    raw_output = classify_paper(build_paper_text(row), MODEL, api_key, temperature=temperature)
     try:
         parsed = extract_json(raw_output)
     except (ValueError, json.JSONDecodeError) as exc:
