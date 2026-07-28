@@ -1,0 +1,45 @@
+{
+  "id": "7",
+  "title": "베버의 합리화, 인터넷 공간에서 어떻게 볼 것인가?",
+  "class1_raw": "이 외(창)",
+  "class2_raw": "",
+  "model_response": {
+    "paper_title": "베버의 합리화, 인터넷 공간에서 어떻게 볼 것인가?",
+    "online_community_object": {
+      "community_name": "정보 없음",
+      "community_unit": "정보 없음",
+      "research_data": "인터넷에서의 인간행위"
+    },
+    "research_question_summary": "인터넷 공간에서 베버의 합리화 개념이 어떻게 이해될 수 있는지",
+    "object_analytical_status": "사회현상 관찰 창구",
+    "primary_classification": {
+      "top_category": "역할적 특성",
+      "subcategory": "창",
+      "reason": "인터넷에서의 인간행위를 통해 베버의 합리화 개념을 이해하는 것이 핵심",
+      "evidence": [
+        "연구 목적: 인터넷에서의 인간행위의 합리성을 베버의 합리성 개념으로 이해",
+        "분석 결과: 인터넷 활동의 합리성은 근대사회의 합리성과 다르지만 상황적 맥락에서 이해"
+      ]
+    },
+    "secondary_classifications": [],
+    "classification_boundary": {
+      "closest_competing_category": "없음",
+      "distinction_reason": "인터넷 활동의 합리성이 주로 외부의 합리화 개념을 이해하는 데 사용"
+    },
+    "excluded_possible_categories": [
+      {
+        "subcategory": "매체·공간적 특성",
+        "reason_for_exclusion": "인터넷 공간의 기술적 특성이 분석의 핵심이 아님"
+      }
+    ],
+    "confidence": {
+      "level": "중간",
+      "score": 0.75,
+      "reason": "초록만으로는 구체적인 연구 질문이나 분석 결과가 명확하지 않음"
+    },
+    "additional_information_needed": [
+      "인터넷에서의 인간행위의 구체적인 합리성 메커니즘",
+      "베버의 합리성 개념과 인터넷 활동의 합리성 간의 구체적인 연관성"
+    ]
+  }
+}

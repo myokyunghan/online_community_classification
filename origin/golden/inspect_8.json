@@ -1,0 +1,11 @@
+{
+  "id": "8",
+  "title": "미술계 온라인 커뮤니티 연구: “네오룩 아카이브(2000-2024)”의 텍스트마이닝 분석",
+  "class1_raw": "ROLE_FIELD_DISCOURSE",
+  "class2_raw": "",
+  "model_response": {
+    "code": "ROLE_FIELD_DISCOURSE",
+    "quote": "다양한 주체들이 교차하는 공론장이자 협력망의 역할을 해왔다는 점을 알 수 있었다.",
+    "verdict": "부여"
+  }
+}

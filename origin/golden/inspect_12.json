@@ -1,0 +1,93 @@
+{
+  "id": "12",
+  "title": "네트워크 시대의 인터넷 정치참여: 탄핵정국 디시인사이드 정치토론 게시판을 중심으로",
+  "class1_raw": "ROLE_FIELD_DISCOURSE",
+  "class2_raw": "",
+  "model_response": {
+    "focus": "이 논문은 2004년 탄핵정국 기간 디시인사이드 정치토론 게시판에서 형성된 온라인 토론과 참여 양상을 분석하여, 인터넷 네트워크가 정치참여의 내용, 주체, 방식을 어떻게 변화시키고 민주주의 학습장으로 기능하는지를 탐구한다.",
+    "audit": [
+      {
+        "code": "ROLE_FIELD_DISCOURSE",
+        "quote": "탄핵정국 동안 디시의 정치토론 게시판은 ‘네트워크 정치참여(political participation of network)’라 불릴만한 참여방식을 형성했다. 그로인해 네티즌들의 정치참여 내용은 풍부화 되고 유용성뿐만 아니라 커뮤니케이션을 통해 정치적 관심을 유지하는데 기여했다.",
+        "prob": 0.85,
+        "verdict": "부여"
+      },
+      {
+        "code": "ROLE_FIELD_SOCIALCAPITAL",
+        "quote": null,
+        "prob": 0.2,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_POLARIZE",
+        "quote": "탄핵정국 동안 디시의 정치토론 게시판은 ‘네트워크 정치참여(political participation of network)’라 불릴만한 참여방식을 형성했다.",
+        "prob": 0.6,
+        "verdict": "부여"
+      },
+      {
+        "code": "ROLE_WINDOW_GENDER",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_HATE",
+        "quote": null,
+        "prob": 0.08,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_MISC",
+        "quote": null,
+        "prob": 0.1,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_SUBSCRIPTION",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_GOVERNANCE",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_DEMOGRAPHIC",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_LIFECYCLE",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_ONLINE_ANNONIMITY",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      }
+    ],
+    "rationale": "논문은 디시인사이드 정치토론 게시판에서 형성된 온라인 토론과 참여 방식의 변화를 중심으로, 담론이 어떻게 형성되고 정치참여의 성격을 재구성하는지를 분석함으로써 FIELD_DISCOURSE와 WINDOW_POLARIZE를 동시에 중심으로 삼는다.",
+    "role": [
+      {
+        "code": "ROLE_FIELD_DISCOURSE",
+        "prob": 0.85,
+        "evidence": "탄핵정국 동안 디시의 정치토론 게시판은 ‘네트워크 정치참여(political participation of network)’라 불릴만한 참여방식을 형성했다. 그로인해 네티즌들의 정치참여 내용은 풍부화 되고 유용성뿐만 아니라 커뮤니케이션을 통해 정치적 관심을 유지하는데 기여했다."
+      },
+      {
+        "code": "ROLE_WINDOW_POLARIZE",
+        "prob": 0.6,
+        "evidence": "탄핵정국 동안 디시의 정치토론 게시판은 ‘네트워크 정치참여(political participation of network)’라 불릴만한 참여방식을 형성했다."
+      }
+    ],
+    "env": [],
+    "status": "OK",
+    "_dropped_by_cap": []
+  }
+}

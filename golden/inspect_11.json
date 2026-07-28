@@ -1,0 +1,88 @@
+{
+  "id": "11",
+  "title": "윤리적 매개자로서 셀러브리티와 팬덤의 감정 정치: 갓생 세대의 장원영 소비하기",
+  "class1_raw": "ROLE_WINDOW_MISC",
+  "class2_raw": "",
+  "model_response": {
+    "focus": "이 논문은 온라인 커뮤니티를 외부 사회현상을 관찰하는 사례로, 관계·담론이 형성되는 공간 자체로 삼는다.",
+    "audit": [
+      {
+        "code": "ROLE_FIELD_PUBLICSPHERE",
+        "quote": null,
+        "prob": 0.12,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_FIELD_SOCIALCAPITAL",
+        "quote": "팬덤 내부에 서 감정은 실천의 지속성을 보장하는 동력으로 작동하며, 위계와 규범적 기대를 형성하였다.",
+        "prob": 0.78,
+        "verdict": "부여"
+      },
+      {
+        "code": "ROLE_WINDOW_POLARIZE",
+        "quote": null,
+        "prob": 0.08,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_GENDER",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_HATE",
+        "quote": null,
+        "prob": 0.07,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ROLE_WINDOW_MISC",
+        "quote": "윤리적 주체화와 감정 정치, 그 리고 신자유주의적 통치성이 어떻게 상호 접속하는지를 분석하고자 했다.",
+        "prob": 0.42,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_SUBSCRIPTION",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_GOVERNANCE",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_DEMOGRAPHIC",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_COMMUNITY_LIFECYCLE",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      },
+      {
+        "code": "ENV_ONLINE_ANNONIMITY",
+        "quote": null,
+        "prob": 0.05,
+        "verdict": "미부여"
+      }
+    ],
+    "rationale": "논문은 더쿠·디시인사이드·네이트판 등 온라인 커뮤니티를 통해 팬덤 내 감정·위계·규범 형성을 분석함으로써 관계·담론이 형성되는 공간으로서의 사회적 자본을 조명하고, 동시에 윤리적 주체화와 신자유주의적 통치성이라는 외부 현상을 사례로 활용한다.",
+    "role": [
+      {
+        "code": "ROLE_FIELD_SOCIALCAPITAL",
+        "prob": 0.78,
+        "evidence": "팬덤 내부에 서 감정은 실천의 지속성을 보장하는 동력으로 작동하며, 위계와 규범적 기대를 형성하였다."
+      }
+    ],
+    "env": [],
+    "status": "OK",
+    "_dropped_by_cap": []
+  }
+}

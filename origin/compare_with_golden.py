@@ -268,9 +268,6 @@ def main():
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT), help="비교 결과를 저장할 CSV 경로")
     parser.add_argument("--api-key", default=None, help="NVIDIA API 키 (미지정 시 NVIDIA_API_KEY 환경변수 사용)")
     parser.add_argument("--limit", type=int, default=None, help="테스트용으로 앞 N편만 처리")
-    parser.add_argument(
-        "--ids", default=None, help="쉼표로 구분한 특정 id들만 처리 (예: --ids 4,11,18). CSV 순서를 그대로 따른다"
-    )
     parser.add_argument("--sample", type=int, default=None, help="전체 중 N편을 무작위로 뽑아 테스트")
     parser.add_argument("--seed", type=int, default=None, help="--sample 사용 시 재현 가능한 무작위 시드")
     parser.add_argument("--runs-per-paper", type=int, default=1, help="논문당 반복 호출 횟수, 과반수로 채택 (기본 1)")
@@ -286,13 +283,7 @@ def main():
         sys.exit("오류: NVIDIA API 키가 없습니다. --api-key 또는 NVIDIA_API_KEY 환경변수를 설정하세요.")
 
     rows = load_rows(Path(args.csv))
-    if args.ids:
-        wanted = {s.strip() for s in args.ids.split(",") if s.strip()}
-        rows = [r for r in rows if r["id"] in wanted]
-        missing = wanted - {r["id"] for r in rows}
-        if missing:
-            print(f"경고: golden CSV에서 못 찾은 id: {', '.join(sorted(missing))}", file=sys.stderr)
-    elif args.sample:
+    if args.sample:
         rng = random.Random(args.seed)
         rows = rng.sample(rows, min(args.sample, len(rows)))
     elif args.limit:
