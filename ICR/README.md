@@ -114,6 +114,9 @@ python3 ICR/compare_with_golden_fewshot.py --fewshot-n 0
 python3 ICR/repeat_eval.py --repeats 100 --fewshot-ids 3,11,22 --runs-per-paper 3
 ```
 
+이게 실제로 쓰는 표준 실행 명령어다 — few-shot을 3,11,22로 고정하고, 논문당 3회 호출
+다수결을 적용한 평가를 100번 반복해서 안정성을 확인한다.
+
 - 반복마다 논문별 원자료를 `repeat_eval_raw.csv`에 즉시 append+flush (중단돼도 안전)
 - 반복별 요약은 `repeat_eval_summary.csv`
 - 다 끝나면 반복 간 "합산 정답률"/"합산 포함율"/"평균 F1"의 평균·표준편차를 출력
