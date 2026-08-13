@@ -40,9 +40,9 @@ WINDOW와 FIELD는 동시에 해당할 수 있다 (예: 혐오 담론 확산을 
 
 | 코드 | 그 사회현상 |
 |---|---|
-| ROLE_WINDOW_POLARIZE | 정치적 양극화·이념 대립·진영 갈등 |
-| ROLE_WINDOW_GENDER | 젠더 갈등·페미니즘 대립 담론 |
-| ROLE_WINDOW_HATE | 혐오 표현·정서의 확산 |
+| ROLE_WINDOW_POLARIZE | 정치적 양극화·이념 대립·진영 갈등 현상 포착 |
+| ROLE_WINDOW_GENDER | 젠더 갈등·페미니즘 대립 현상 포착 |
+| ROLE_WINDOW_HATE | 혐오 표현·정서의 확산 현상 포착|
 | ROLE_WINDOW_MISC | 위 세 가지 외 사회현상(결혼문화, 노동서사, 팬덤소비, 예술계 등). 온라인 커뮤니티가 없어도 존재했을, 한 단어·구절로 답할 수 있는 현상이어야 한다(예: 노동통제 체제, 팬덤소비, 예술계 위계). |
 
 ---

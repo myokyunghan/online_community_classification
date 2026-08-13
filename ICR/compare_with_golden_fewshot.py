@@ -65,8 +65,11 @@ def classify_row(
         fewshot_examples=fewshot_examples,
         env_fewshot_examples=env_fewshot_examples,
     )
-    role_codes = [item["code"] for item in parsed.get("role", [])]
-    env_codes = [item["code"] for item in parsed.get("env", [])]
+    role_items = parsed.get("role", [])
+    env_items = parsed.get("env", [])
+    role_codes = [item["code"] for item in role_items]
+    env_codes = [item["code"] for item in env_items]
+    code_probs = {item["code"]: item.get("prob") for item in role_items + env_items}
 
     division = parsed.get("division") or {}
     division_summary = (
@@ -83,6 +86,7 @@ def classify_row(
         "role_codes": role_codes,
         "env_codes": env_codes,
         "predicted_codes": set(role_codes) | set(env_codes),
+        "code_probs": code_probs,
         "dropped_by_cap": set(parsed.get("_dropped_by_cap") or []),
     }
 
@@ -271,6 +275,7 @@ def main():
                     "gold_codes": "",
                     "majority_status": "",
                     "majority_codes": "",
+                    "majority_codes_probs": "",
                     "run_details": "",
                     "full_agreement": "",
                     "error_runs": "",
@@ -320,8 +325,10 @@ def main():
         "title",
         "gold_codes",
         "majority_codes",
+        "majority_codes_probs",
         "gold_covered",
         "run_details",
+        "focuses",
         "rationales",
     ]
     with mismatch_path.open("w", encoding="utf-8-sig", newline="") as f:
@@ -334,11 +341,12 @@ def main():
         print(f"\n정답과 어긋난 {len(mismatches)}편 (별도 저장: {mismatch_path}):")
         for r in mismatches:
             gold = r["gold_codes"] or "ERR"
-            pred = r["majority_codes"] or "(없음/ERR)"
+            pred = r["majority_codes_probs"] or r["majority_codes"] or "(없음/ERR)"
             tag = "부분일치(정답 포함)" if r["gold_covered"] else "오답"
             print(f"  [{tag}] id={r['id']} - {r['title'][:30]}")
             print(f"      gold={gold}")
             print(f"      pred={pred}")
+            print(f"      focus={r['focuses']}")
     else:
         print(f"\n정답과 어긋난 논문 없음 (전부 완전일치). 빈 mismatches 파일 저장: {mismatch_path}")
 
