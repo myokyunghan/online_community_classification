@@ -5,17 +5,17 @@
         해당하는 대상이 실제로 있는지, (b) 이 논문이 커뮤니티의 "역할"(창/장)을 조명하는지,
         (c) 커뮤니티의 "환경적 조건"(회원제/거버넌스/생애주기/익명성)을 조명하는지 판단한다.
         (b), (c)는 동시에 해당할 수 있다. 커뮤니티가 없거나 (b)(c) 둘 다 아니면 그대로 ERR.
-    2차 호출 (prompt_template_role.txt, (b)가 true일 때만): 창/장 반사실 테스트를 적용하며
-        ROLE 6개 코드만 채점한다.
-    3차 호출 (prompt_template_env.txt, (c)가 true일 때만): ENV 4개 코드만 채점한다.
+    2차 호출 (prompt_template_role.txt, (b)가 true일 때만): 창/장 반사실 테스트를 적용해
+        장(FIELD)과 창(WINDOW)의 정의만 놓고 비교한 뒤 **둘 중 하나만** 고른다 — 예전처럼
+        6개 세부 코드(PUBLICSPHERE/SOCIALCAPITAL/POLARIZE/GENDER/HATE/MISC)에 각각
+        확률을 매기던 audit 방식은 폐기했다. 논문 지형을 11개 코드로 세분하는 것 자체가
+        무리라고 판단해, 이제 ROLE 축은 FIELD/WINDOW 이진 분류만 한다.
+    3차 호출 (prompt_template_env.txt, (c)가 true일 때만): ENV 4개 코드만 채점한다 (당분간
+        유지 — 이번 변경은 ROLE 단계만 대상으로 한다).
 
-2·3차에서 나온 audit(각각 최대 6개, 4개)를 합쳐서 최종적으로 상위 2개(0.5 이상인 것만)를
-뽑는다 — "합쳐서 최대 2개"라는 캡은 ROLE/ENV를 나눠 호출해도 전체 기준으로 그대로 유지된다.
-
-10개를 한 번에 판단하게 하면 부담이 크다는 문제, 그리고 이전의 2단계(축 결정→코드판정)
-캐스케이드에서 "1차가 틀리면 2차가 못 되돌리는" 문제(특히 WINDOW/FIELD 판단을 1차에서
-확정해버려서 2차 코드 판정을 막아버린 것)를 이렇게 다시 나눠서 완화한다 — 창/장 반사실
-테스트는 이제 ROLE 호출 안에서 직접 이뤄지므로, 그 판단이 코드 채점과 분리되지 않는다.
+ROLE의 이진 선택(prob=1.0 고정, 항상 채택)과 3차에서 나온 ENV audit(최대 4개)을 합쳐서
+최종적으로 상위 2개(0.5 이상인 것만)를 뽑는다 — "합쳐서 최대 2개"라는 캡은 그대로 유지되며,
+ROLE 선택은 prob이 가장 높으므로 이 중 하나는 항상 ROLE 선택이 차지한다.
 
 이전 실험에서 배운 것들을 반영한다:
     - few-shot 데모와 실제 프롬프트의 출력 형식(키 구성)을 반드시 똑같이 맞춘다.
@@ -67,22 +67,19 @@ ROLE_PROMPT = ROLE_PROMPT_PATH.read_text(encoding="utf-8")
 ENV_PROMPT = ENV_PROMPT_PATH.read_text(encoding="utf-8")
 
 ROLE_CODES = (
-    "ROLE_FIELD_PUBLICSPHERE",
-    "ROLE_FIELD_SOCIALCAPITAL",
-    "ROLE_WINDOW_POLARIZE",
-    "ROLE_WINDOW_GENDER",
-    "ROLE_WINDOW_HATE",
-    "ROLE_WINDOW_MISC",
-)
+    "ROLE_FIELD",
+    "ROLE_WINDOW",
+)  # 장/창 반사실 테스트로 둘 중 하나만 고르는 이진 판정 (예전 6개 세부 코드 audit는 폐기)
 ENV_CODES = (
     "ENV_COMMUNITY_SUBSCRIPTION",
     "ENV_COMMUNITY_GOVERNANCE",
     "ENV_COMMUNITY_LIFECYCLE",
     "ENV_ONLINE_ANNONIMITY",
 )
-AUDIT_CODES = ROLE_CODES + ENV_CODES  # ENV_COMMUNITY_DEMOGRAPHIC은 의도적으로 제외한 10개
+AUDIT_CODES = ROLE_CODES + ENV_CODES  # ENV_COMMUNITY_DEMOGRAPHIC은 의도적으로 제외한 6개
 
 AUDIT_REQUIRED_KEYS = ("audit", "rationale")
+ROLE_CHOICE_REQUIRED_KEYS = ("choice", "quote", "rationale")
 DIVISION_REQUIRED_KEYS = ("has_community", "role_relevant", "env_relevant")
 
 CODE_FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
@@ -160,6 +157,35 @@ def robust_extract_raw_audit(text: str) -> dict:
     raise last_exc
 
 
+def extract_role_choice(text: str) -> dict:
+    """ROLE 호출의 새 출력 형식({"choice": "FIELD"|"WINDOW", "quote":..., "rationale":...})을
+    파싱한다. 6개 세부 코드 audit가 아니라 장/창 중 하나를 고른 이진 판정이다."""
+    start = text.find("{")
+    if start == -1:
+        raise ValueError("ROLE 응답에서 JSON 객체를 찾을 수 없습니다.")
+    obj, _ = json.JSONDecoder().raw_decode(text, start)
+    missing = [key for key in ROLE_CHOICE_REQUIRED_KEYS if key not in obj]
+    if missing:
+        raise ValueError(f"ROLE 응답이 불완전합니다 (누락된 키: {missing}).")
+    choice = str(obj.get("choice", "")).strip().upper()
+    if choice not in ("FIELD", "WINDOW"):
+        raise ValueError(f"ROLE 응답의 choice가 FIELD/WINDOW가 아닙니다: {obj.get('choice')!r}")
+    if not obj.get("quote"):
+        raise ValueError("ROLE 응답에 choice는 있는데 quote(근거)가 없습니다.")
+    obj["choice"] = choice
+    return obj
+
+
+def robust_extract_role_choice(text: str) -> dict:
+    last_exc = None
+    for candidate in _response_candidates(text):
+        try:
+            return extract_role_choice(candidate)
+        except (ValueError, json.JSONDecodeError) as exc:
+            last_exc = exc
+    raise last_exc
+
+
 def extract_division_json(text: str) -> dict:
     start = text.find("{")
     if start == -1:
@@ -211,7 +237,42 @@ def _build_ideal_partial(gold_row: dict, codes: tuple[str, ...]) -> dict:
 
 
 def build_ideal_role_output(gold_row: dict) -> dict:
-    return _build_ideal_partial(gold_row, ROLE_CODES)
+    """golden CSV의 class1("FIELD" 또는 "WINDOW")로부터 ROLE 전용 few-shot 데모 출력을 만든다.
+    새 ROLE 단계는 6개 세부 코드 audit가 아니라 장/창 이진 선택이므로, 예전처럼 11개 코드
+    체계의 _build_ideal_partial(다중 코드 audit용)을 재사용하지 않는다.
+
+    근거 우선순위(위에서부터 먼저 채워진 것을 쓴다):
+    1) quote/rationale 컬럼 — 사람이 이 코드 판정만을 위해 직접 쓴 가장 정확한 근거.
+    2) focus 컬럼("> 주제 : ...\\n> 온라인 커뮤니티 : ...") — 애초에 이 논문의 주제와
+       온라인 커뮤니티를 어떻게(창/장) 활용하는지를 사람이 이미 요약해 둔 것이라, quote/
+       rationale이 비어있어도 이쪽이 훨씬 논문에 맞는 근거가 된다.
+    3) 그래도 없으면 초록 앞부분을 기계적으로 자른 것 + 정해진 문장 — 순수 형식 시연용."""
+    choice = (gold_row.get("class1") or "").strip().upper()
+    if choice not in ("FIELD", "WINDOW"):
+        choice = "WINDOW"  # 방어적 기본값 — 이 함수는 few-shot 형식 시연용이라 실제 채점에는 안 쓰인다
+
+    quote = (gold_row.get("quote") or "").strip()
+    rationale = (gold_row.get("rationale") or "").strip()
+
+    if not quote or not rationale:
+        focus = parse_gold_focus_text(gold_row.get("focus", ""))
+        topic, community_role = focus.get("주제", "").strip(), focus.get("온라인 커뮤니티", "").strip()
+        if not quote and community_role:
+            quote = community_role
+        if not rationale and (topic or community_role):
+            rationale = " ".join(s for s in (topic, community_role) if s)
+
+    if not quote:
+        abstract = (gold_row.get("abstract") or "").strip()
+        quote = abstract[:60] + "…" if len(abstract) > 60 else abstract
+
+    if not rationale:
+        if choice == "FIELD":
+            rationale = "이 논문은 온라인 커뮤니티라는 공간 자체가 사회에서 하는 역할을 분석 대상으로 삼으므로 FIELD에 해당한다."
+        else:
+            rationale = "이 논문은 온라인 커뮤니티 밖에도 실체가 있는 사회현상 자체를 분석 대상으로 삼고 온라인 커뮤니티는 그 사례일 뿐이므로 WINDOW에 해당한다."
+
+    return {"choice": choice, "quote": quote, "rationale": rationale}
 
 
 def build_ideal_env_output(gold_row: dict) -> dict:
@@ -290,9 +351,16 @@ def classify_paper_fewshot(
     fewshot_examples: list[tuple[str, dict]] | None = None,
     env_fewshot_examples: list[tuple[str, dict]] | None = None,
 ) -> dict:
-    """1차(분리 판단) → 2차(ROLE, 조건부) → 3차(ENV, 조건부) 순으로 논문을 분류한다.
-    fewshot_examples는 ROLE 호출용, env_fewshot_examples는 ENV 호출용 — 둘 다
-    (논문 텍스트, 이상적 출력) 쌍 리스트다."""
+    """1차(분리 판단) → 2차(ROLE, 조건부) 순으로 논문을 분류한다. 3차(ENV) 세부 코드 감사
+    호출은 이번 FIELD/WINDOW 실험 범위에서 뺐다 — golden CSV에 ENV 정답 자체가 없어져서
+    (class2 컬럼 삭제) ENV few-shot이 논문 내용과 무관하게 항상 "전부 미부여"로만 나오는 등
+    4개 세부 코드 중 무엇인지 의미 있게 평가할 방법이 없었기 때문이다. 다만 1차 division이
+    이미 판단하는 env_relevant(환경적 조건을 다루는지 여부)는 버리지 않고, 그 판단 자체를
+    `ENV_RELEVANT`라는 단일 표시로 결과에 남긴다 — 세부 코드(회원제/거버넌스/생애주기/
+    익명성 중 무엇인지)는 안 가리되 "환경적 조건도 다루는 논문이다"라는 신호는 유지한다.
+    env_fewshot_examples 인자는 호출부 호환을 위해 계속 받지만 실제로는 쓰지 않는다.
+
+    fewshot_examples는 ROLE 호출용 (논문 텍스트, 이상적 출력) 쌍 리스트다."""
     client = OpenAI(base_url=NVIDIA_BASE_URL, api_key=api_key)
 
     division_raw = _call(client, model, build_division_messages(paper_text), temperature, reasoning_effort)
@@ -304,7 +372,7 @@ def classify_paper_fewshot(
     role_relevant = bool(division.get("role_relevant"))
     env_relevant = bool(division.get("env_relevant"))
 
-    if not division.get("has_community") or not (role_relevant or env_relevant):
+    if not division.get("has_community"):
         result = build_err_result(division.get("reasoning", ""))
         result["division"] = division
         return result
@@ -312,23 +380,32 @@ def classify_paper_fewshot(
     combined_audit = []
     rationales = []
 
+    if env_relevant:
+        # env_relevant면 ENV_RELEVANT는 항상 부여한다 — 세부 ENV_* 코드 감사는 생략하되,
+        # division의 env_relevant 판단 자체는 별도 API 호출 없이 그대로 남긴다.
+        env_quote = division.get("reasoning") or "1차 division에서 환경적 조건(회원제/거버넌스/생애주기/익명성 등)을 다룬다고 판단함"
+        combined_audit.append({"code": "ENV_RELEVANT", "quote": env_quote, "prob": 1.0, "verdict": "부여"})
+        rationales.append("[ENV] 세부 코드 감사는 생략하고, division 단계의 env_relevant 판단만 표시함")
+
     if role_relevant:
+        # env_relevant 여부와 무관하게, role_relevant면 ROLE(FIELD/WINDOW) API도 별도로
+        # 호출한다 — 익명성 비교(ENV)와 공론장 기능(ROLE)을 동시에 다루는 논문(예: id13류
+        # 중 일부)처럼 두 축이 함께 있을 수 있기 때문이다.
         role_raw = _call(client, model, build_role_messages(paper_text, fewshot_examples), temperature, reasoning_effort)
         try:
-            role_obj = robust_extract_raw_audit(role_raw)
+            role_obj = robust_extract_role_choice(role_raw)
         except (ValueError, json.JSONDecodeError) as exc:
             raise ValueError(f"2차(ROLE) 호출 파싱 실패: {exc} | 응답 일부: {role_raw[:500]!r}") from exc
-        combined_audit.extend(item for item in role_obj["audit"] if item.get("code") in ROLE_CODES)
+        # 장/창 중 하나를 반드시 고른 이진 판정이므로 prob=1.0으로 통째로 "부여" 처리한다 —
+        # 6개 세부 코드를 서로 경쟁시키던 예전 확률 audit는 더 이상 없다.
+        role_code = f"ROLE_{role_obj['choice']}"
+        combined_audit.append({"code": role_code, "quote": role_obj.get("quote"), "prob": 1.0, "verdict": "부여"})
         rationales.append(f"[ROLE] {role_obj.get('rationale', '')}")
 
-    if env_relevant:
-        env_raw = _call(client, model, build_env_messages(paper_text, env_fewshot_examples), temperature, reasoning_effort)
-        try:
-            env_obj = robust_extract_raw_audit(env_raw)
-        except (ValueError, json.JSONDecodeError) as exc:
-            raise ValueError(f"3차(ENV) 호출 파싱 실패: {exc} | 응답 일부: {env_raw[:500]!r}") from exc
-        combined_audit.extend(item for item in env_obj["audit"] if item.get("code") in ENV_CODES)
-        rationales.append(f"[ENV] {env_obj.get('rationale', '')}")
+    if not combined_audit:  # env_relevant도 role_relevant도 아님
+        result = build_err_result(division.get("reasoning", ""))
+        result["division"] = division
+        return result
 
     parsed = derive_role_env_from_audit({"audit": combined_audit, "rationale": " | ".join(rationales)})
     parsed["division"] = division
@@ -354,9 +431,6 @@ def main():
     parser.add_argument(
         "--reasoning-effort", default="low", choices=["low", "medium", "high"], help="모델의 reasoning_effort (기본 low)"
     )
-    parser.add_argument(
-        "--fewshot-ids", default=None, help="쉼표로 구분한 few-shot 예시 id (예: --fewshot-ids 3,11,22). 미지정 시 zero-shot"
-    )
     args = parser.parse_args()
 
     if not args.id and not args.paper_file:
@@ -373,30 +447,8 @@ def main():
     else:
         paper_text = Path(args.paper_file).read_text(encoding="utf-8")
 
-    fewshot_examples = None
-    env_fewshot_examples = None
-    if args.fewshot_ids:
-        with Path(args.csv).open(encoding="utf-8-sig") as f:
-            all_rows = list(csv.DictReader(f))
-        id_to_row = {r["id"]: r for r in all_rows}
-        wanted_ids = [s.strip() for s in args.fewshot_ids.split(",") if s.strip()]
-        missing = [i for i in wanted_ids if i not in id_to_row]
-        if missing:
-            sys.exit(f"오류: few-shot id를 golden CSV에서 못 찾음: {', '.join(missing)}")
-        fewshot_pool = [id_to_row[i] for i in wanted_ids]
-        fewshot_examples = [(build_abstract_only_text(r), build_ideal_role_output(r)) for r in fewshot_pool]
-        env_fewshot_examples = [(build_abstract_only_text(r), build_ideal_env_output(r)) for r in fewshot_pool]
-        print(f"few-shot 고정: {', '.join(wanted_ids)}", file=sys.stderr)
-
     try:
-        parsed = classify_paper_fewshot(
-            paper_text,
-            MODEL,
-            api_key,
-            reasoning_effort=args.reasoning_effort,
-            fewshot_examples=fewshot_examples,
-            env_fewshot_examples=env_fewshot_examples,
-        )
+        parsed = classify_paper_fewshot(paper_text, MODEL, api_key, reasoning_effort=args.reasoning_effort)
     except (ValueError, json.JSONDecodeError) as exc:
         sys.exit(f"오류: {exc}")
 

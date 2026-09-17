@@ -1,0 +1,29 @@
+﻿repeat,id,title,is_err_gold,gold_codes,majority_codes,majority_status,exact_match,gold_covered,precision,recall,f1,full_agreement
+1,1,세월호 ‘노란 리본’과 일베의 ‘폭식 투쟁’: 공감과 혐오의 전형성과 그 비전형적 생활세계,False,ROLE_WINDOW,ROLE_WINDOW,OK,True,True,1.0,1.0,1.0,True
+1,2,온라인 커뮤니티 활동이 신뢰반경에 미치는 양면적 효과,False,ROLE_FIELD,"ENV_COMMUNITY_SUBSCRIPTION, ROLE_FIELD",OK,True,True,1.0,1.0,1.0,False
+1,4,청년 불안정 노동자의 자본주의 미시세계: 물류센터와 편의점의 노동체험 서사에 대한 질적 내용분석,False,ROLE_WINDOW,ROLE_WINDOW,OK,True,True,1.0,1.0,1.0,False
+1,5,인터넷 커뮤니티 활동이 윤리적 소비 참여에 미치는 영향: 온라인 사회자본과 공감 경험의 역할을 중심으로,False,ROLE_FIELD,ROLE_FIELD,OK,True,True,1.0,1.0,1.0,True
+1,6,게시글의 높은 추천 수는 커뮤니티 내 여론을 의미하는가?: 에펨코리아(FMkorea)의 게시글에 참여한 이용자 다양성과 추천 수의 관계,False,ROLE_FIELD,ROLE_FIELD,OK,True,True,1.0,1.0,1.0,True
+1,7,"베버의 합리화, 인터넷 공간에서 어떻게 볼 것인가?",True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+1,8,미술계 온라인 커뮤니티 연구: “네오룩 아카이브(2000-2024)”의 텍스트마이닝 분석,False,ROLE_WINDOW,ROLE_FIELD,OK,False,False,0.0,0.0,0.0,False
+1,9,한국 결혼식 문화 속에서 개인과 가족의 인상 관리와 감정 수행성 체계: 온라인 커뮤니티 사례를 중심으로,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+1,10,극우주의의 프레임과 감정 정치: 언어네트워크방법론을 통한 일베커뮤니티 분석,False,ROLE_WINDOW,ROLE_FIELD,OK,False,False,0.0,0.0,0.0,True
+1,12,네트워크 시대의 인터넷 정치참여: 탄핵정국 디시인사이드 정치토론 게시판을 중심으로,False,ROLE_FIELD,ROLE_FIELD,OK,True,True,1.0,1.0,1.0,True
+1,13,메갈리아의 두 딸들: 익명성 수준에 따른 온라인 커뮤니티의 정체성 분화,False,ROLE_ETC,"ENV_ONLINE_ANNONIMITY, ROLE_FIELD",OK,False,False,0.0,0.0,0.0,True
+1,14,온라인 커뮤니티의 상호작용 의례: 자전거 커뮤니티 사례를 중심으로,False,ROLE_FIELD,ROLE_FIELD,OK,True,True,1.0,1.0,1.0,True
+1,15,온라인 커뮤니티의 사회적 자본과 제도: 디시인사이드 바람의 화원/바람의 나라 갤러리를 중심으로,False,ROLE_FIELD,ROLE_FIELD,OK,True,True,1.0,1.0,1.0,True
+1,16,한국사회의 젠더갈등과 감정동학: 2022년 대선 여성가족부 폐지 담론을 중심으로,False,ROLE_WINDOW,ROLE_FIELD,OK,False,False,0.0,0.0,0.0,True
+1,17,젠더 게임 해부하기: 정치적 부족주의에 입각한 반동의 정치에 대한 비판,False,ROLE_WINDOW,ROLE_WINDOW,OK,True,True,1.0,1.0,1.0,False
+1,18,모성의 의료화: 맘카페의 모유수유 담론을 중심으로,False,ROLE_WINDOW,ROLE_FIELD,OK,False,False,0.0,0.0,0.0,True
+1,19,혐오와 혐오가 만날 때: 온라인 커뮤니티에 나타난 정치 혐오 및 사회 혐오 키워드의 결합에 대한 분석,False,ROLE_WINDOW,ROLE_WINDOW,OK,True,True,1.0,1.0,1.0,False
+1,20,뉴노멀 시대에 한국교회의 변화와 전망: 온라인 공동체를 중심으로,True,ERR,,ERR,True,True,1.0,1.0,1.0,False
+1,21,비대면 상황에서의 온라인 커뮤니티 활동이 삶 만족도에 미치는 영향: 코로나19 이전(2017년)과 이후(2021년) 비교를 중심으로,False,ROLE_FIELD,ROLE_WINDOW,OK,False,False,0.0,0.0,0.0,False
+1,23,유아교사의 디지털역량 강화를 위한 교육 프로그램 개발,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+1,24,성별영향평가를 통한 김포한강신도시의 여성친화도시 계획수립에 관한 연구,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+1,25,넷노그래피를 활용한 성경의 핵심어 네트워크 분석,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+1,26,온라인 커뮤니티의 신뢰형성이 구매의도에 미치는 영향,False,ROLE_FIELD,ROLE_FIELD,OK,True,True,1.0,1.0,1.0,True
+1,27,사용자간 상호작용성(User-to-User Interactivity)의 측정을 위한 척도 개발과 검증:온라인 브랜드 커뮤니티를 대상으로,False,ROLE_FIELD,,ERR,False,False,0.0,0.0,0.0,True
+1,28,장애대학생의 개인심리 변인에 따른 역량 영향,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+1,29,‘엄마표 영어’담론 분석:토픽모델링과 감성분석의 적용,False,ROLE_WINDOW,,OK,False,False,0.0,0.0,0.0,False
+1,30,온라인 탐구환경에서의 학습경험: 효과적인 탐구학습 설계를 위한 시사,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+2,1,세월호 ‘노란 리본’과 일베의 ‘폭식 투쟁’: 공감과 혐오의 전형성과 그 비전형적 생활세계,False,ROLE_WINDOW,ROLE_WINDOW,OK,True,True,1.0,1.0,1.0,True
