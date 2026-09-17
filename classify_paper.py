@@ -29,7 +29,9 @@ NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 # MODEL = "nvidia/llama-3.3-nemotron-super-49b-v1.5"  # PUBLICSPHERE/MISC 혼동이 nano 모델과 동일하게 재발 (id=12,8,18) -- 프롬프트 경계사례 의심
 # MODEL = "nvidia/nemotron-3-ultra-550b-a55b"  # Nemotron-3 계열 전체가 크기 무관하게 요청 스키마를 무시하고 자체 스키마를 생성함
 # MODEL = "mistralai/mistral-medium-3.5-128b"
-MODEL = "openai/gpt-oss-120b"  # harmony 포맷 추론모델. reasoning_effort로 사고 비중 조절, structured output 네이티브 지원
+# MODEL = "openai/gpt-oss-120b"  # harmony 포맷 추론모델. reasoning_effort로 사고 비중 조절, structured output 네이티브 지원 (오늘 세션 내내 쓴 기본 모델)
+# MODEL = "moonshotai/kimi-k3"  # 호출이 30분 넘게 응답 없이 멈춤 — 이 계정 카탈로그에 없거나 호출 불가로 의심됨 (검증 안 됨)
+MODEL = "openai/gpt-oss-20b"  # gpt-oss-120b의 더 작은 버전. harmony 포맷/reasoning_effort는 동일하게 지원
 TEMPLATE_PATH = Path(__file__).parent / "prompt_template.txt"
 
 # 이 모델은 reasoning on/off를 chat_template_kwargs가 아니라 system 메시지 내용으로 제어하며,
