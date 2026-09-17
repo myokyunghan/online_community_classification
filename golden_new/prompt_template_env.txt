@@ -32,15 +32,16 @@
 
 **2-2. `rationale` 필드.** ENV 판정에 대한 한 문장 요약. `audit`의 prob과 모순되지 않아야 한다.
 
-출력은 JSON만, 다른 텍스트 없이:
+출력은 JSON만, 다른 텍스트 없이 다음 형식을 그대로 따른다 (아래는 키 구성만 보여주는
+스키마 데모이며, 실제 판단 내용과는 무관하다):
 
 ```json
 {
   "audit": [
-    {"code": "ENV_COMMUNITY_SUBSCRIPTION", "quote": null, "prob": 0.05, "verdict": "미부여"},
-    {"code": "ENV_COMMUNITY_GOVERNANCE", "quote": null, "prob": 0.05, "verdict": "미부여"},
-    {"code": "ENV_COMMUNITY_LIFECYCLE", "quote": null, "prob": 0.05, "verdict": "미부여"},
-    {"code": "ENV_ONLINE_ANNONIMITY", "quote": "완전익명과 부분익명 게시물 간 담론 차이를 비교했다", "prob": 0.8, "verdict": "부여"}
+    {"code": "ENV_COMMUNITY_SUBSCRIPTION", "quote": null, "prob": 0.1, "verdict": "미부여"},
+    {"code": "ENV_COMMUNITY_GOVERNANCE", "quote": null, "prob": 0.1, "verdict": "미부여"},
+    {"code": "ENV_COMMUNITY_LIFECYCLE", "quote": null, "prob": 0.1, "verdict": "미부여"},
+    {"code": "ENV_ONLINE_ANNONIMITY", "quote": "이 코드의 판별 질문에 답이 되는 논문 원문 인용 또는 요지", "prob": 0.7, "verdict": "부여"}
   ],
   "rationale": "전체 ENV 판정에 대한 한 문장 요약"
 }

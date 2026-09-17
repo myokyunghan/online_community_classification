@@ -133,6 +133,10 @@ def classify_row(row: dict, api_key: str, temperature: float = 0.0) -> dict:
     env_codes = extract_axis_codes(parsed, "env", ENV_CODES)
     predicted_codes = set(role_codes) | set(env_codes)
     dropped_by_cap = set(parsed.get("_dropped_by_cap") or [])
+    code_probs = {
+        item.get("code", "").strip(): item.get("prob")
+        for item in parsed.get("role", []) + parsed.get("env", [])
+    }
 
     return {
         "parsed": parsed,
@@ -141,6 +145,7 @@ def classify_row(row: dict, api_key: str, temperature: float = 0.0) -> dict:
         "role_codes": role_codes,
         "env_codes": env_codes,
         "predicted_codes": predicted_codes,
+        "code_probs": code_probs,
         "dropped_by_cap": dropped_by_cap,
     }
 
@@ -209,10 +214,24 @@ def compare_row(row: dict, predictions: list[dict], aggregate: dict) -> dict:
     is_err_gold = class1_raw.upper() == "ERR"
 
     predicted_codes = aggregate["majority_codes"]
+
+    def _fmt_code(code: str, probs: dict) -> str:
+        prob = probs.get(code)
+        return f"{code}({prob:.2f})" if isinstance(prob, (int, float)) else code
+
     run_details = "; ".join(
-        f"run{i}:{','.join(sorted(codes)) if codes else '없음'}"
-        for i, codes in enumerate(aggregate["run_code_sets"], 1)
+        f"run{i}:{','.join(_fmt_code(c, p.get('code_probs') or {}) for c in sorted(codes)) if codes else '없음'}"
+        for i, (codes, p) in enumerate(zip(aggregate["run_code_sets"], predictions), 1)
     )
+
+    def _avg_prob(code: str) -> float | None:
+        vals = [p["code_probs"][code] for p in predictions if code in (p.get("code_probs") or {})]
+        return sum(vals) / len(vals) if vals else None
+
+    majority_codes_probs = ", ".join(
+        _fmt_code(code, {code: _avg_prob(code)}) for code in sorted(predicted_codes)
+    ) if predicted_codes else ""
+
     rationales = " | ".join(str(p["parsed"].get("rationale", "")) for p in predictions)
     focuses = " | ".join(str(p.get("focus") or "") for p in predictions)
     error_runs = f"{aggregate['err_count']}/{len(predictions)}"
@@ -250,6 +269,7 @@ def compare_row(row: dict, predictions: list[dict], aggregate: dict) -> dict:
         "gold_codes": gold_codes_display,
         "majority_status": aggregate["majority_status"],
         "majority_codes": ", ".join(sorted(predicted_codes)) if predicted_codes else "",
+        "majority_codes_probs": majority_codes_probs,
         "run_details": run_details,
         "full_agreement": aggregate["full_agreement"],
         "error_runs": error_runs,
@@ -325,6 +345,7 @@ def main():
                     "gold_codes": "",
                     "majority_status": "",
                     "majority_codes": "",
+                    "majority_codes_probs": "",
                     "run_details": "",
                     "full_agreement": "",
                     "error_runs": "",

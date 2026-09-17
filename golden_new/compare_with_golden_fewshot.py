@@ -1,7 +1,10 @@
 """
-ICR/classify_paper_fewshot.py(시스템프롬프트+few-shot, 요약 단계 없음)로 golden 30편을
+golden_new/classify_paper_fewshot.py(시스템프롬프트+few-shot, 요약 단계 없음)로 golden 30편을
 분류하고 정답과 비교한다. 재시도/다수결 집계/정답 비교는 루트 compare_with_golden.py의
 범용 로직을 재사용한다.
+
+ICR/과 로직은 동일하되, NVIDIA API 대신 자체 서버(143.248.248.192, Ollama로 띄운 Qwen3.8:27b-mlx)를
+호출한다 — MODEL/NVIDIA_BASE_URL은 이 폴더의 classify_paper.py에서 따로 정의한다.
 
 few-shot 예시는 golden CSV에서 무작위로 뽑되, ERR(전부 미부여) 사례를 최소 1개는 항상
 포함시킨다 — 순수 무작위로는 ERR 사례가 하나도 안 걸려서 모델이 "아무 코드도 없음" 출력
@@ -9,13 +12,15 @@ few-shot 예시는 golden CSV에서 무작위로 뽑되, ERR(전부 미부여) �
 few-shot으로 뽑힌 논문은 테스트 대상에서 자동 제외된다.
 
 사전 준비:
-    export NVIDIA_API_KEY="nvapi-..."
+    자체 서버가 인증을 요구하지 않으므로 API 키 설정은 필요 없다(--api-key로 지정 가능).
 
 사용 예:
-    python3 ICR/compare_with_golden_fewshot.py --sample 20 --seed 7
-    python3 ICR/compare_with_golden_fewshot.py --fewshot-n 3 --seed 7 --runs-per-paper 3
-    python3 ICR/compare_with_golden_fewshot.py --fewshot-n 0   # few-shot 없이(zero-shot) 비교용
+    python3 golden_new/compare_with_golden_fewshot.py --sample 20 --seed 7
+    python3 golden_new/compare_with_golden_fewshot.py --fewshot-n 3 --seed 7 --runs-per-paper 3
+    python3 golden_new/compare_with_golden_fewshot.py --fewshot-n 0   # few-shot 없이(zero-shot) 비교용
 """
+
+from __future__ import annotations
 
 import argparse
 import csv
@@ -23,13 +28,15 @@ import os
 import random
 import sys
 import time
+import traceback
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from classify_paper import MODEL  # noqa: E402
+from classify_paper import DUMMY_API_KEY, MODEL  # noqa: E402  (이 폴더의 버전 — 자체 서버용)
 from classify_paper_fewshot import (  # noqa: E402  (이 폴더의 버전)
     build_abstract_only_text,
+    build_ideal_division_output,
     build_ideal_env_output,
     build_ideal_role_output,
     classify_paper_fewshot,
@@ -41,9 +48,9 @@ from compare_with_golden import (  # noqa: E402  (루트의 범용 로직 재사
     load_rows,
 )
 
-ICR_DIR = Path(__file__).parent
-DEFAULT_CSV = ICR_DIR / "온라인_커뮤니티_연구지형_분류논문_30편.csv"
-DEFAULT_OUTPUT = ICR_DIR / "comparison_results_fewshot.csv"
+GOLDEN_NEW_DIR = Path(__file__).parent
+DEFAULT_CSV = GOLDEN_NEW_DIR / "온라인_커뮤니티_연구지형_분류논문_30편.csv"
+DEFAULT_OUTPUT = GOLDEN_NEW_DIR / "comparison_results_fewshot.csv"
 
 
 def classify_row(
@@ -53,6 +60,7 @@ def classify_row(
     temperature: float = 0.0,
     fewshot_examples: list[tuple[str, dict]] | None = None,
     env_fewshot_examples: list[tuple[str, dict]] | None = None,
+    division_fewshot_examples: list[tuple[str, dict]] | None = None,
 ) -> dict:
     """classify_paper_fewshot()으로 판정하고, aggregate_predictions()/compare_row()가
     기대하는 형태로 맞춘다."""
@@ -64,6 +72,7 @@ def classify_row(
         reasoning_effort=reasoning_effort,
         fewshot_examples=fewshot_examples,
         env_fewshot_examples=env_fewshot_examples,
+        division_fewshot_examples=division_fewshot_examples,
     )
     role_items = parsed.get("role", [])
     env_items = parsed.get("env", [])
@@ -99,6 +108,7 @@ def classify_row_with_retry(
     retry_wait_seconds: float,
     fewshot_examples: list[tuple[str, dict]] | None = None,
     env_fewshot_examples: list[tuple[str, dict]] | None = None,
+    division_fewshot_examples: list[tuple[str, dict]] | None = None,
 ) -> dict:
     """서버 오류는 긴 대기 후, JSON 파싱 실패는 짧은 대기 후 재시도한다."""
     for attempt in range(1, max_retries + 1):
@@ -109,6 +119,7 @@ def classify_row_with_retry(
                 reasoning_effort,
                 fewshot_examples=fewshot_examples,
                 env_fewshot_examples=env_fewshot_examples,
+                division_fewshot_examples=division_fewshot_examples,
             )
         except Exception as exc:
             kind = classify_retry_kind(exc)
@@ -130,6 +141,7 @@ def classify_row_multi(
     sleep_seconds: float,
     fewshot_examples: list[tuple[str, dict]] | None = None,
     env_fewshot_examples: list[tuple[str, dict]] | None = None,
+    division_fewshot_examples: list[tuple[str, dict]] | None = None,
 ) -> list[dict]:
     predictions = []
     for run in range(1, runs + 1):
@@ -142,6 +154,7 @@ def classify_row_multi(
                 retry_wait_seconds,
                 fewshot_examples,
                 env_fewshot_examples,
+                division_fewshot_examples,
             )
         )
         if run < runs:
@@ -153,7 +166,9 @@ def main():
     parser = argparse.ArgumentParser(description="시스템프롬프트+few-shot 방식으로 golden 30편 정확도 비교")
     parser.add_argument("--csv", default=str(DEFAULT_CSV), help="정답 CSV 경로")
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT), help="비교 결과를 저장할 CSV 경로")
-    parser.add_argument("--api-key", default=None, help="NVIDIA API 키 (미지정 시 NVIDIA_API_KEY 환경변수 사용)")
+    parser.add_argument(
+        "--api-key", default=None, help="자체 서버 API 키 (인증 불필요 — 미지정 시 더미 값 사용)"
+    )
     parser.add_argument("--limit", type=int, default=None, help="테스트용으로 앞 N편만 처리")
     parser.add_argument(
         "--ids", default=None, help="쉼표로 구분한 특정 id들만 처리 (예: --ids 4,11,18). CSV 순서를 그대로 따른다"
@@ -180,14 +195,13 @@ def main():
     parser.add_argument("--retry-wait-minutes", type=float, default=3.0, help="재시도 전 대기 시간(분, 기본 3.0)")
     args = parser.parse_args()
 
-    api_key = args.api_key or os.environ.get("NVIDIA_API_KEY")
-    if not api_key:
-        sys.exit("오류: NVIDIA API 키가 없습니다. --api-key 또는 NVIDIA_API_KEY 환경변수를 설정하세요.")
+    api_key = args.api_key or os.environ.get("NVIDIA_API_KEY") or DUMMY_API_KEY
 
     rows = load_rows(Path(args.csv))
 
     fewshot_examples = []
     env_fewshot_examples = []
+    division_fewshot_examples = []
     if args.fewshot_ids:
         wanted_ids = [s.strip() for s in args.fewshot_ids.split(",") if s.strip()]
         id_to_row = {r["id"]: r for r in rows}
@@ -200,6 +214,9 @@ def main():
         rows = [r for r in rows if r["id"] not in fewshot_ids]
         fewshot_examples = [(build_abstract_only_text(r), build_ideal_role_output(r)) for r in fewshot_pool]
         env_fewshot_examples = [(build_abstract_only_text(r), build_ideal_env_output(r)) for r in fewshot_pool]
+        division_fewshot_examples = [
+            (build_abstract_only_text(r), build_ideal_division_output(r)) for r in fewshot_pool
+        ]
         print(
             "few-shot 예시로 사용 (고정 지정, 테스트 대상에서 제외): "
             + ", ".join(f"{r['id']}({r.get('class1', '')})" for r in fewshot_pool),
@@ -224,6 +241,9 @@ def main():
         rows = [r for r in rows if r["id"] not in fewshot_ids]
         fewshot_examples = [(build_abstract_only_text(r), build_ideal_role_output(r)) for r in fewshot_pool]
         env_fewshot_examples = [(build_abstract_only_text(r), build_ideal_env_output(r)) for r in fewshot_pool]
+        division_fewshot_examples = [
+            (build_abstract_only_text(r), build_ideal_division_output(r)) for r in fewshot_pool
+        ]
         print(
             "few-shot 예시로 사용 (테스트 대상에서 제외): "
             + ", ".join(f"{r['id']}({r.get('class1', '')})" for r in fewshot_pool),
@@ -256,6 +276,7 @@ def main():
                 args.sleep,
                 fewshot_examples,
                 env_fewshot_examples,
+                division_fewshot_examples,
             )
             # 다수결(과반수, 3회면 2/3)로 최종 코드를 채택한다 — aggregate_predictions()가
             # 이미 이 계산을 해준다. full_agreement 여부는 결과 CSV에 그대로 남아있어
@@ -264,6 +285,7 @@ def main():
             results.append(compare_row(row, predictions, aggregate))
         except Exception as exc:  # API 오류, JSON 파싱 실패 등
             print(f"  경고: 처리 실패 - {exc}", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
             results.append(
                 {
                     "id": row["id"],
@@ -301,21 +323,41 @@ def main():
     err_gold = [r for r in evaluated if r["class1_raw"].upper() == "ERR"]
     normal = [r for r in evaluated if r["class1_raw"].upper() != "ERR"]
 
-    exact_correct = sum(1 for r in normal if r["exact_match"])
-    covered_correct = sum(1 for r in normal if r["gold_covered"])
+    # exact_match/gold_covered는 ERR 정답 케이스까지 이미 올바르게 반영돼 있으므로(정답도
+    # 예측도 ERR로 일치하면 True), 굳이 normal만 따로 떼어 계산하지 않고 evaluated 전체를
+    # 기준으로 삼는다 — ERR 정답을 맞춘 걸 별도 줄로 빼놓으면 전체 정확도가 실제보다 낮아
+    # 보이고 숫자가 두 군데로 나뉘어 헷갈린다.
+    exact_correct = sum(1 for r in evaluated if r["exact_match"])
+    covered_correct = sum(1 for r in evaluated if r["gold_covered"])
     agreed = sum(1 for r in evaluated if r["full_agreement"] is True)
     any_error = sum(1 for r in results if r.get("error_runs") and not r["error_runs"].startswith("0/"))
     err_correct = sum(1 for r in err_gold if r["exact_match"])
     gold_dropped = sum(1 for r in normal if r.get("gold_dropped_by_cap") is True)
 
+    def _code_set(field: str) -> set:
+        return {c.strip() for c in field.split(",") if c.strip()}
+
+    # ERR이 아닌 논문 중에서, 예측이 정답과 하나도 안 겹치는(완전히 벗어난) 케이스를 걸러내고
+    # 그 나머지(최소 1개는 맞힌 케이스)만 놓고 봤을 때의 정확도 — "아예 딴 소리" vs "방향은
+    # 맞았는데 다는 못 맞힘"을 구분해서 보고 싶을 때 참고하는 세부 지표다. ERR 정답은 코드
+    # 집합 자체가 없어 이 구분이 의미가 없으므로 여기서는 빼며, 위 전체 정확도에는 이미
+    # 포함돼 있다.
+    off_target = [r for r in normal if not (_code_set(r["gold_codes"]) & _code_set(r["majority_codes"]))]
+    on_target = [r for r in normal if _code_set(r["gold_codes"]) & _code_set(r["majority_codes"])]
+    on_target_exact = sum(1 for r in on_target if r["exact_match"])
+    on_target_covered = sum(1 for r in on_target if r["gold_covered"])
+
     print(f"\n결과 저장: {output_path}")
-    print(f"완전 일치(정답 집합 == 예측 집합, ERR 테스트 케이스 제외): {exact_correct}/{len(normal)}")
-    print(f"정답 카테고리 포함(예측이 정답을 모두 포함, 추가 예측은 허용): {covered_correct}/{len(normal)}")
+    print(f"완전 일치(ERR 정답 포함, 전체 기준): {exact_correct}/{len(evaluated)}")
+    print(f"정답 카테고리 포함(ERR 정답 포함, 전체 기준): {covered_correct}/{len(evaluated)}")
     print(f"{args.runs_per_paper}회 호출 전부 동일한 결과(완전 합의): {agreed}/{len(evaluated)}")
     print(f"적어도 한 번은 ERR(판단 불가) 응답이 나온 논문: {any_error}/{len(results)}")
     print(f"'합쳐서 최대 2개' 캡이 정답 코드를 잘라낸 논문: {gold_dropped}/{len(normal)}")
+    print(f"[참고, ERR 제외] 예측이 정답과 하나도 안 겹침(완전히 벗어남): {len(off_target)}/{len(normal)}")
+    print(f"  → 벗어난 케이스 제외 시 완전 일치: {on_target_exact}/{len(on_target)}")
+    print(f"  → 벗어난 케이스 제외 시 정답 카테고리 포함: {on_target_covered}/{len(on_target)}")
     if err_gold:
-        print(f"ERR 정답 케이스(온라인 커뮤니티 논문이 아님)를 올바르게 ERR로 판정: {err_correct}/{len(err_gold)}")
+        print(f"[참고] 그중 ERR 정답 케이스를 올바르게 ERR로 판정: {err_correct}/{len(err_gold)}")
 
     # 정답과 어긋난 것(완전일치가 아닌 것)만 따로 골라 별도 CSV로 저장 + 터미널에도 바로 보여준다.
     mismatches = [r for r in evaluated if not r["exact_match"]]
