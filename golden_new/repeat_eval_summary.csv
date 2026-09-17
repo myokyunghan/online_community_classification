@@ -1,0 +1,4 @@
+﻿repeat,n_total,n_normal,n_err,exact_normal,covered_normal,err_correct,combined_exact_rate,combined_covered_rate,avg_precision,avg_recall,avg_f1
+1,27,19,8,14,14,8,0.8148,0.8148,0.8704,0.8519,0.858
+2,27,19,8,16,16,8,0.8889,0.8889,0.9074,0.9074,0.9074
+3,27,19,8,14,14,6,0.7407,0.7407,0.8704,0.8704,0.8704

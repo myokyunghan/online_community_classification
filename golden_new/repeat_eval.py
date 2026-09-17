@@ -5,15 +5,20 @@ N번 반복해서, 반복 간 평균 정확도·F1을 계산한다. 매 반복�
 평균·표준편차로 본다.
 
 각 반복의 논문별 원자료는 --raw-output(기본 repeat_eval_raw.csv)에 반복마다 즉시 append하고
-flush한다 — 중간에 중단돼도 그때까지 완료된 반복은 그대로 남는다. --start-repeat으로
-중단된 지점부터 이어서 실행할 수 있다.
+flush한다 — 중간에 중단돼도 그때까지 완료된 반복은 그대로 남는다. --start-repeat을 생략하면
+--summary-output(반복이 완주해야만 한 줄 쌓임)을 보고 마지막으로 끝난 반복 다음부터 자동으로
+이어서 시작한다 — 같은 명령을 그대로 다시 실행하기만 하면 된다. 반복 도중에 멈춰서 raw에만
+일부 논문이 기록된 경우 그 미완성분은 재시작 시 자동으로 지워지고(_prune_from_repeat) 그
+반복부터 처음부터 다시 돈다. --start-repeat을 직접 지정하면 그 번호부터(이후 자료는 지우고)
+시작한다.
 
 자체 서버(143.248.248.192, Ollama로 띄운 Qwen3.8:27b-mlx)를 호출한다 — 인증이 필요 없어 API 키
 설정은 불필요하다.
 
 사용 예:
     python3 golden_new/repeat_eval.py --repeats 100 --fewshot-ids 3,11,22 --runs-per-paper 3
-    python3 golden_new/repeat_eval.py --repeats 100 --start-repeat 37   # 36번까지 끝난 뒤 이어서
+    python3 golden_new/repeat_eval.py --repeats 100   # 중단됐다가 같은 명령으로 다시 실행 = 자동 이어하기
+    python3 golden_new/repeat_eval.py --repeats 100 --start-repeat 37   # 37번부터로 수동 지정
 """
 
 import argparse
@@ -57,6 +62,50 @@ RAW_FIELDNAMES = [
     "f1",
     "full_agreement",
 ]
+
+SUMMARY_FIELDNAMES = [
+    "repeat",
+    "n_total",
+    "n_normal",
+    "n_err",
+    "exact_normal",
+    "covered_normal",
+    "err_correct",
+    "combined_exact_rate",
+    "combined_covered_rate",
+    "avg_precision",
+    "avg_recall",
+    "avg_f1",
+]
+
+
+def _last_completed_repeat(summary_path: Path) -> int:
+    """summary_output에 이미 기록된(=완주한) 반복 중 가장 큰 번호를 읽는다. 파일이 없거나
+    비어있으면 0(아직 하나도 안 끝남)."""
+    if not summary_path.exists():
+        return 0
+    with summary_path.open(encoding="utf-8-sig") as f:
+        rows = list(csv.DictReader(f))
+    if not rows:
+        return 0
+    return max(int(r["repeat"]) for r in rows)
+
+
+def _prune_from_repeat(path: Path, fieldnames: list[str], from_repeat: int) -> None:
+    """지난 실행이 반복 도중(그 반복의 summary가 쓰이기 전)에 멈췄을 수 있으므로, 이번에
+    이어서 시작할 반복 번호 이상으로 이미 기록된 행은 미리 지운다 — 그래야 같은 반복 번호로
+    다시 append했을 때 raw/summary에 중복 행이 남지 않는다."""
+    if not path.exists():
+        return
+    with path.open(encoding="utf-8-sig") as f:
+        rows = list(csv.DictReader(f))
+    kept = [r for r in rows if int(r["repeat"]) < from_repeat]
+    if len(kept) == len(rows):
+        return
+    with path.open("w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(kept)
 
 
 def _code_set(s: str) -> set:
@@ -188,7 +237,13 @@ def main():
     parser = argparse.ArgumentParser(description="golden 평가를 N번 반복해서 평균 정확도/F1을 계산")
     parser.add_argument("--csv", default=str(DEFAULT_CSV), help="정답 CSV 경로")
     parser.add_argument("--repeats", type=int, default=100, help="반복 횟수 (기본 100)")
-    parser.add_argument("--start-repeat", type=int, default=1, help="이 번호부터 시작 (중단 후 재시작용, 기본 1)")
+    parser.add_argument(
+        "--start-repeat",
+        type=int,
+        default=None,
+        help="이 번호부터 시작 (중단 후 재시작용). 지정하지 않으면 --summary-output을 보고 "
+        "마지막으로 끝난 반복 다음부터 자동으로 이어서 시작하고, 기록이 없으면 1부터 시작",
+    )
     parser.add_argument(
         "--fewshot-ids", default="3,11,22", help="쉼표로 구분한 few-shot 예시 id (고정, 기본 3,11,22)"
     )
@@ -207,6 +262,24 @@ def main():
     args = parser.parse_args()
 
     api_key = args.api_key or os.environ.get("NVIDIA_API_KEY") or DUMMY_API_KEY
+
+    raw_path = Path(args.raw_output)
+    summary_path = Path(args.summary_output)
+
+    if args.start_repeat is None:
+        args.start_repeat = _last_completed_repeat(summary_path) + 1
+        if args.start_repeat > 1:
+            print(
+                f"이전 실행에서 반복 {args.start_repeat - 1}까지 완료된 것을 감지 - "
+                f"{args.start_repeat}부터 이어서 시작합니다.",
+                file=sys.stderr,
+            )
+
+    if args.start_repeat > 1:
+        # 지난 실행이 반복 도중(그 반복의 summary가 쓰이기 전)에 멈췄을 수 있으니, 이어서
+        # 시작할 반복 번호 이상으로 이미 남아있는 자료는 지워서 재실행 시 중복되지 않게 한다.
+        _prune_from_repeat(raw_path, RAW_FIELDNAMES, args.start_repeat)
+        _prune_from_repeat(summary_path, SUMMARY_FIELDNAMES, args.start_repeat)
 
     rows = load_rows(Path(args.csv))
     wanted_ids = [s.strip() for s in args.fewshot_ids.split(",") if s.strip()]
@@ -228,31 +301,15 @@ def main():
         file=sys.stderr,
     )
 
-    raw_path = Path(args.raw_output)
     write_header = args.start_repeat == 1 or not raw_path.exists()
     raw_file = raw_path.open("a" if not write_header else "w", encoding="utf-8-sig", newline="")
     raw_writer = csv.DictWriter(raw_file, fieldnames=RAW_FIELDNAMES)
     if write_header:
         raw_writer.writeheader()
 
-    summary_path = Path(args.summary_output)
     summary_write_header = args.start_repeat == 1 or not summary_path.exists()
     summary_file = summary_path.open("a" if not summary_write_header else "w", encoding="utf-8-sig", newline="")
-    summary_fieldnames = [
-        "repeat",
-        "n_total",
-        "n_normal",
-        "n_err",
-        "exact_normal",
-        "covered_normal",
-        "err_correct",
-        "combined_exact_rate",
-        "combined_covered_rate",
-        "avg_precision",
-        "avg_recall",
-        "avg_f1",
-    ]
-    summary_writer = csv.DictWriter(summary_file, fieldnames=summary_fieldnames)
+    summary_writer = csv.DictWriter(summary_file, fieldnames=SUMMARY_FIELDNAMES)
     if summary_write_header:
         summary_writer.writeheader()
 

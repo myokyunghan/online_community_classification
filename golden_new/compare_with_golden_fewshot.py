@@ -52,6 +52,30 @@ GOLDEN_NEW_DIR = Path(__file__).parent
 DEFAULT_CSV = GOLDEN_NEW_DIR / "온라인_커뮤니티_연구지형_분류논문_30편.csv"
 DEFAULT_OUTPUT = GOLDEN_NEW_DIR / "comparison_results_fewshot.csv"
 
+# compare_row()/실패 시 폴백 dict가 공통으로 채우는 컬럼 — 논문 처리 도중에도 한 편씩
+# 바로 파일에 쓸 수 있도록 미리 고정해둔다(예전에는 results[0].keys()로 끝나고 나서 정했음).
+RESULT_FIELDNAMES = [
+    "id",
+    "title",
+    "class1_raw",
+    "class1_code",
+    "class2_raw",
+    "class2_code",
+    "gold_codes",
+    "majority_status",
+    "majority_codes",
+    "majority_codes_probs",
+    "run_details",
+    "full_agreement",
+    "error_runs",
+    "dropped_by_cap_runs",
+    "gold_dropped_by_cap",
+    "exact_match",
+    "gold_covered",
+    "focuses",
+    "rationales",
+]
+
 
 def classify_row(
     row: dict,
@@ -262,6 +286,13 @@ def main():
     elif args.limit:
         rows = rows[: args.limit]
 
+    # 오래 걸리는 실행 중간에 진행 상황을 확인할 수 있도록, 전부 끝난 뒤 한 번에 쓰지 않고
+    # 논문 한 편이 끝날 때마다 즉시 append + flush한다.
+    output_path = Path(args.output)
+    output_file = output_path.open("w", encoding="utf-8-sig", newline="")
+    writer = csv.DictWriter(output_file, fieldnames=RESULT_FIELDNAMES)
+    writer.writeheader()
+
     results = []
     for i, row in enumerate(rows, 1):
         print(f"[{i}/{len(rows)}] id={row['id']} - {row['title'][:30]}...", file=sys.stderr)
@@ -282,42 +313,38 @@ def main():
             # 이미 이 계산을 해준다. full_agreement 여부는 결과 CSV에 그대로 남아있어
             # 3번 다 똑같이 나온 논문과 다수결로만 채택된 논문을 구분해볼 수 있다.
             aggregate = aggregate_predictions(predictions)
-            results.append(compare_row(row, predictions, aggregate))
+            result = compare_row(row, predictions, aggregate)
         except Exception as exc:  # API 오류, JSON 파싱 실패 등
             print(f"  경고: 처리 실패 - {exc}", file=sys.stderr)
             traceback.print_exc(file=sys.stderr)
-            results.append(
-                {
-                    "id": row["id"],
-                    "title": row["title"],
-                    "class1_raw": row.get("class1", ""),
-                    "class1_code": "",
-                    "class2_raw": row.get("class2", ""),
-                    "class2_code": "",
-                    "gold_codes": "",
-                    "majority_status": "",
-                    "majority_codes": "",
-                    "majority_codes_probs": "",
-                    "run_details": "",
-                    "full_agreement": "",
-                    "error_runs": "",
-                    "dropped_by_cap_runs": "",
-                    "gold_dropped_by_cap": "",
-                    "exact_match": False,
-                    "gold_covered": False,
-                    "focuses": "",
-                    "rationales": "",
-                }
-            )
+            result = {
+                "id": row["id"],
+                "title": row["title"],
+                "class1_raw": row.get("class1", ""),
+                "class1_code": "",
+                "class2_raw": row.get("class2", ""),
+                "class2_code": "",
+                "gold_codes": "",
+                "majority_status": "",
+                "majority_codes": "",
+                "majority_codes_probs": "",
+                "run_details": "",
+                "full_agreement": "",
+                "error_runs": "",
+                "dropped_by_cap_runs": "",
+                "gold_dropped_by_cap": "",
+                "exact_match": False,
+                "gold_covered": False,
+                "focuses": "",
+                "rationales": "",
+            }
+        results.append(result)
+        writer.writerow(result)
+        output_file.flush()
         if i < len(rows):
             time.sleep(args.sleep)
 
-    fieldnames = list(results[0].keys())
-    output_path = Path(args.output)
-    with output_path.open("w", encoding="utf-8-sig", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(results)
+    output_file.close()
 
     evaluated = [r for r in results if r["gold_codes"]]
     err_gold = [r for r in evaluated if r["class1_raw"].upper() == "ERR"]

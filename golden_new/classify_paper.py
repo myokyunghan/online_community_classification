@@ -1,5 +1,5 @@
 """
-자체 서버(143.248.248.192, vLLM으로 띄운 mlx-community/Qwen3.8-27B-4bit)를 OpenAI 호환 API로
+자체 서버(143.248.248.192, Ollama로 띄운 qwen3.8:27b-mlx)를 OpenAI 호환 API로
 공통 상수/유틸. golden_new/ 폴더 전용 — NVIDIA_BASE_URL/MODEL을 여기서만 바꿔서
 ICR/(NVIDIA API 사용)에는 영향이 없다. classify_paper_fewshot.py/compare_with_golden_fewshot.py/
 repeat_eval.py가 이 파일의 MODEL/NVIDIA_BASE_URL/derive_role_env_from_audit을 가져다 쓴다.
@@ -22,10 +22,10 @@ from pathlib import Path
 
 from openai import OpenAI
 
-NVIDIA_BASE_URL = "http://143.248.248.192:11435/v1"  # 자체 vLLM 서버 (OpenAI 호환 엔드포인트)
-DUMMY_API_KEY = "not-needed"  # vLLM 서버는 인증을 안 걸어놔서 아무 문자열이나 허용
+NVIDIA_BASE_URL = "http://143.248.248.192:11434/v1"  # 자체 Ollama 서버 (OpenAI 호환 엔드포인트)
+DUMMY_API_KEY = "not-needed"  # Ollama 서버는 인증을 안 걸어놔서 아무 문자열이나 허용
 
-MODEL = "mlx-community/Qwen3.8-27B-4bit"
+MODEL = "qwen3.8:27b-mlx"
 TEMPLATE_PATH = Path(__file__).parent / "prompt_template.txt"
 
 
