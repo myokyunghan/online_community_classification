@@ -27,7 +27,7 @@ user/assistant 대화 턴으로 넣는다(`_fewshot_turns`). gpt-oss-120b는 멀
 finish_reason='stop'인데 content가 비는 문제가 있어 텍스트 삽입 방식을 썼지만, 여기서는
 그 문제가 없다는 전제로 일반적인 chat 형식 few-shot을 쓴다.
 
-자체 서버(143.248.248.192, Ollama로 띄운 Qwen3.8:27b-mlx)를 호출한다 — 인증이 필요 없어 API 키
+자체 서버(143.248.248.192, vLLM으로 띄운 mlx-community/Qwen3.8-27B-4bit)를 호출한다 — 인증이 필요 없어 API 키
 설정은 불필요하다. NVIDIA_BASE_URL/MODEL은 이 폴더의 classify_paper.py에서 정의한다.
 
 사용 예:
@@ -263,7 +263,7 @@ def build_ideal_division_output(gold_row: dict) -> dict:
 def _fewshot_turns(fewshot_examples: list[tuple[str, dict]]) -> list[dict]:
     """few-shot 예시를 실제 user/assistant 대화 턴으로 만든다 (ICR/와 달리 시스템 프롬프트에
     텍스트로 뭉쳐넣지 않음). ICR/에서는 gpt-oss-120b가 멀티턴을 쓰면 finish_reason='stop'인데
-    content가 비는 현상이 있어 텍스트 삽입 방식을 썼지만, golden_new는 다른 모델(Qwen, Ollama
+    content가 비는 현상이 있어 텍스트 삽입 방식을 썼지만, golden_new는 다른 모델(Qwen, vLLM
     경유)이라 그 문제가 없다는 전제로 일반적인 few-shot 대화 형식을 쓴다."""
     turns = []
     for demo_text, demo_output in fewshot_examples:
@@ -309,7 +309,7 @@ def build_err_result(reasoning: str) -> dict:
 
 def _call(client: OpenAI, model: str, messages: list[dict], temperature: float, reasoning_effort: str) -> str:
     """reasoning_effort는 인자로 받되 실제로는 쓰지 않는다 — NVIDIA gpt-oss(harmony 포맷)
-    전용 extra_body 파라미터였고, Ollama로 띄운 Qwen 서버는 이걸 모르므로 요청에서 뺐다.
+    전용 extra_body 파라미터였고, vLLM으로 띄운 Qwen 서버는 이걸 모르므로 요청에서 뺐다.
     호출부(CLI --reasoning-effort 등)와의 시그니처 호환을 위해 인자 자체는 남겨둔다."""
     response = client.chat.completions.create(
         model=model,

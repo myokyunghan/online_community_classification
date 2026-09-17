@@ -1,10 +1,10 @@
 """
-자체 서버(143.248.248.192, Ollama로 띄운 Qwen3.8:27b-mlx)를 OpenAI 호환 API로 호출하기 위한
+자체 서버(143.248.248.192, vLLM으로 띄운 mlx-community/Qwen3.8-27B-4bit)를 OpenAI 호환 API로
 공통 상수/유틸. golden_new/ 폴더 전용 — NVIDIA_BASE_URL/MODEL을 여기서만 바꿔서
 ICR/(NVIDIA API 사용)에는 영향이 없다. classify_paper_fewshot.py/compare_with_golden_fewshot.py/
 repeat_eval.py가 이 파일의 MODEL/NVIDIA_BASE_URL/derive_role_env_from_audit을 가져다 쓴다.
 
-Ollama 서버는 API 키 인증을 안 걸어놨으므로, --api-key/NVIDIA_API_KEY 미지정 시 더미 문자열을
+vLLM 서버는 API 키 인증을 안 걸어놨으므로, --api-key/NVIDIA_API_KEY 미지정 시 더미 문자열을
 그대로 쓴다 (openai 클라이언트가 api_key를 필수로 요구해서 빈 값은 안 됨).
 
 build_messages/classify_paper/main(단일 호출 CLI, prompt_template.txt 기반)은 golden_new의
@@ -22,10 +22,10 @@ from pathlib import Path
 
 from openai import OpenAI
 
-NVIDIA_BASE_URL = "http://143.248.248.192:11434/v1"  # 자체 Ollama 서버 (OpenAI 호환 엔드포인트)
-DUMMY_API_KEY = "not-needed"  # Ollama 서버는 인증을 안 걸어놔서 아무 문자열이나 허용
+NVIDIA_BASE_URL = "http://143.248.248.192:11435/v1"  # 자체 vLLM 서버 (OpenAI 호환 엔드포인트)
+DUMMY_API_KEY = "not-needed"  # vLLM 서버는 인증을 안 걸어놔서 아무 문자열이나 허용
 
-MODEL = "qwen3.8:27b-mlx"
+MODEL = "mlx-community/Qwen3.8-27B-4bit"
 TEMPLATE_PATH = Path(__file__).parent / "prompt_template.txt"
 
 
@@ -103,7 +103,7 @@ def classify_paper(paper_text: str, model: str, api_key: str, temperature: float
 
 
 def main():
-    parser = argparse.ArgumentParser(description="자체 서버(Ollama, Qwen)로 논문 분류")
+    parser = argparse.ArgumentParser(description="자체 서버(vLLM, Qwen)로 논문 분류")
     parser.add_argument("--paper-file", required=True, help="논문 텍스트(제목/초록/방법/결론 등) 파일 경로")
     parser.add_argument("--api-key", default=None, help="자체 서버 API 키 (인증 불필요 — 미지정 시 더미 값 사용)")
     parser.add_argument("--output", default=None, help="결과 JSON을 저장할 파일 경로 (선택)")
