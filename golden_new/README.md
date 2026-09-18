@@ -161,3 +161,6 @@ python3 ICR/repeat_eval.py --repeats 100 --fewshot-ids 3,11,22 --runs-per-paper 
 `prompt_template_system.txt`는 이전(요약 없이 단일 호출로 10개를 한 번에 판단하던) 버전의
 시스템 프롬프트다. 지금은 `prompt_template_division/role/env.txt` 3개로 대체되어 어떤
 Python 파일에서도 더 이상 참조하지 않는다 — 참고용으로만 남겨둔 것이라 삭제해도 무방하다.
+
+
+<!-- python3 golden_new/repeat_eval.py --repeats 50 --fewshot-ids 3,11,22 --runs-per-paper 3 -->
