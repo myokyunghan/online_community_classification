@@ -1,0 +1,29 @@
+﻿repeat,id,title,is_err_gold,gold_codes,majority_codes,majority_status,exact_match,gold_covered,precision,recall,f1,full_agreement
+1,23,유아교사의 디지털역량 강화를 위한 교육 프로그램 개발,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+1,27,사용자간 상호작용성(User-to-User Interactivity)의 측정을 위한 척도 개발과 검증:온라인 브랜드 커뮤니티를 대상으로,False,ROLE_FIELD_SOCIALCAPITAL,,ERR,False,False,0.0,0.0,0.0,True
+1,30,온라인 탐구환경에서의 학습경험: 효과적인 탐구학습 설계를 위한 시사,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+1,9,한국 결혼식 문화 속에서 개인과 가족의 인상 관리와 감정 수행성 체계: 온라인 커뮤니티 사례를 중심으로,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+1,15,온라인 커뮤니티의 사회적 자본과 제도: 디시인사이드 바람의 화원/바람의 나라 갤러리를 중심으로,False,ROLE_FIELD_SOCIALCAPITAL,ENV_COMMUNITY_LIFECYCLE,OK,False,False,0.0,0.0,0.0,True
+1,21,비대면 상황에서의 온라인 커뮤니티 활동이 삶 만족도에 미치는 영향: 코로나19 이전(2017년)과 이후(2021년) 비교를 중심으로,False,ROLE_FIELD_SOCIALCAPITAL,ROLE_FIELD_SOCIALCAPITAL,OK,True,True,1.0,1.0,1.0,True
+1,4,청년 불안정 노동자의 자본주의 미시세계: 물류센터와 편의점의 노동체험 서사에 대한 질적 내용분석,False,ROLE_WINDOW_MISC,ROLE_WINDOW_POLARIZE,OK,False,False,0.0,0.0,0.0,True
+1,6,게시글의 높은 추천 수는 커뮤니티 내 여론을 의미하는가?: 에펨코리아(FMkorea)의 게시글에 참여한 이용자 다양성과 추천 수의 관계,False,"ENV_COMMUNITY_GOVERNANCE, ROLE_FIELD_PUBLICSPHERE","ENV_COMMUNITY_GOVERNANCE, ROLE_FIELD_PUBLICSPHERE",OK,True,True,1.0,1.0,1.0,True
+1,1,세월호 ‘노란 리본’과 일베의 ‘폭식 투쟁’: 공감과 혐오의 전형성과 그 비전형적 생활세계,False,ROLE_WINDOW_HATE,"ROLE_WINDOW_HATE, ROLE_WINDOW_POLARIZE",OK,False,True,0.5,1.0,0.6667,True
+1,13,메갈리아의 두 딸들: 익명성 수준에 따른 온라인 커뮤니티의 정체성 분화,False,"ENV_COMMUNITY_LIFECYCLE, ENV_ONLINE_ANNONIMITY","ENV_COMMUNITY_LIFECYCLE, ENV_ONLINE_ANNONIMITY",OK,True,True,1.0,1.0,1.0,True
+2,23,유아교사의 디지털역량 강화를 위한 교육 프로그램 개발,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+2,27,사용자간 상호작용성(User-to-User Interactivity)의 측정을 위한 척도 개발과 검증:온라인 브랜드 커뮤니티를 대상으로,False,ROLE_FIELD_SOCIALCAPITAL,,ERR,False,False,0.0,0.0,0.0,True
+2,30,온라인 탐구환경에서의 학습경험: 효과적인 탐구학습 설계를 위한 시사,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+2,9,한국 결혼식 문화 속에서 개인과 가족의 인상 관리와 감정 수행성 체계: 온라인 커뮤니티 사례를 중심으로,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+2,15,온라인 커뮤니티의 사회적 자본과 제도: 디시인사이드 바람의 화원/바람의 나라 갤러리를 중심으로,False,ROLE_FIELD_SOCIALCAPITAL,ENV_COMMUNITY_LIFECYCLE,OK,False,False,0.0,0.0,0.0,True
+2,21,비대면 상황에서의 온라인 커뮤니티 활동이 삶 만족도에 미치는 영향: 코로나19 이전(2017년)과 이후(2021년) 비교를 중심으로,False,ROLE_FIELD_SOCIALCAPITAL,ROLE_FIELD_SOCIALCAPITAL,OK,True,True,1.0,1.0,1.0,True
+2,4,청년 불안정 노동자의 자본주의 미시세계: 물류센터와 편의점의 노동체험 서사에 대한 질적 내용분석,False,ROLE_WINDOW_MISC,ROLE_WINDOW_POLARIZE,OK,False,False,0.0,0.0,0.0,True
+2,6,게시글의 높은 추천 수는 커뮤니티 내 여론을 의미하는가?: 에펨코리아(FMkorea)의 게시글에 참여한 이용자 다양성과 추천 수의 관계,False,"ENV_COMMUNITY_GOVERNANCE, ROLE_FIELD_PUBLICSPHERE","ENV_COMMUNITY_GOVERNANCE, ROLE_FIELD_PUBLICSPHERE",OK,True,True,1.0,1.0,1.0,True
+2,1,세월호 ‘노란 리본’과 일베의 ‘폭식 투쟁’: 공감과 혐오의 전형성과 그 비전형적 생활세계,False,ROLE_WINDOW_HATE,"ROLE_WINDOW_HATE, ROLE_WINDOW_POLARIZE",OK,False,True,0.5,1.0,0.6667,True
+2,13,메갈리아의 두 딸들: 익명성 수준에 따른 온라인 커뮤니티의 정체성 분화,False,"ENV_COMMUNITY_LIFECYCLE, ENV_ONLINE_ANNONIMITY","ENV_COMMUNITY_LIFECYCLE, ENV_ONLINE_ANNONIMITY",OK,True,True,1.0,1.0,1.0,True
+3,23,유아교사의 디지털역량 강화를 위한 교육 프로그램 개발,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+3,27,사용자간 상호작용성(User-to-User Interactivity)의 측정을 위한 척도 개발과 검증:온라인 브랜드 커뮤니티를 대상으로,False,ROLE_FIELD_SOCIALCAPITAL,,ERR,False,False,0.0,0.0,0.0,True
+3,30,온라인 탐구환경에서의 학습경험: 효과적인 탐구학습 설계를 위한 시사,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+3,9,한국 결혼식 문화 속에서 개인과 가족의 인상 관리와 감정 수행성 체계: 온라인 커뮤니티 사례를 중심으로,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+3,15,온라인 커뮤니티의 사회적 자본과 제도: 디시인사이드 바람의 화원/바람의 나라 갤러리를 중심으로,False,ROLE_FIELD_SOCIALCAPITAL,ENV_COMMUNITY_LIFECYCLE,OK,False,False,0.0,0.0,0.0,True
+3,21,비대면 상황에서의 온라인 커뮤니티 활동이 삶 만족도에 미치는 영향: 코로나19 이전(2017년)과 이후(2021년) 비교를 중심으로,False,ROLE_FIELD_SOCIALCAPITAL,ROLE_FIELD_SOCIALCAPITAL,OK,True,True,1.0,1.0,1.0,True
+3,4,청년 불안정 노동자의 자본주의 미시세계: 물류센터와 편의점의 노동체험 서사에 대한 질적 내용분석,False,ROLE_WINDOW_MISC,ROLE_WINDOW_POLARIZE,OK,False,False,0.0,0.0,0.0,True
+3,6,게시글의 높은 추천 수는 커뮤니티 내 여론을 의미하는가?: 에펨코리아(FMkorea)의 게시글에 참여한 이용자 다양성과 추천 수의 관계,False,"ENV_COMMUNITY_GOVERNANCE, ROLE_FIELD_PUBLICSPHERE","ENV_COMMUNITY_GOVERNANCE, ROLE_FIELD_PUBLICSPHERE",OK,True,True,1.0,1.0,1.0,True

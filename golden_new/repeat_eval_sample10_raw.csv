@@ -1,0 +1,22 @@
+﻿repeat,id,title,is_err_gold,gold_codes,majority_codes,majority_status,exact_match,gold_covered,precision,recall,f1,full_agreement
+1,24,성별영향평가를 통한 김포한강신도시의 여성친화도시 계획수립에 관한 연구,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+1,4,청년 불안정 노동자의 자본주의 미시세계: 물류센터와 편의점의 노동체험 서사에 대한 질적 내용분석,False,ROLE_WINDOW_MISC,ROLE_WINDOW_MISC,OK,True,True,1.0,1.0,1.0,True
+1,20,뉴노멀 시대에 한국교회의 변화와 전망: 온라인 공동체를 중심으로,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+1,6,게시글의 높은 추천 수는 커뮤니티 내 여론을 의미하는가?: 에펨코리아(FMkorea)의 게시글에 참여한 이용자 다양성과 추천 수의 관계,False,"ENV_COMMUNITY_GOVERNANCE, ROLE_FIELD_PUBLICSPHERE","ENV_COMMUNITY_GOVERNANCE, ROLE_FIELD_PUBLICSPHERE",OK,True,True,1.0,1.0,1.0,True
+1,15,온라인 커뮤니티의 사회적 자본과 제도: 디시인사이드 바람의 화원/바람의 나라 갤러리를 중심으로,False,ROLE_FIELD_SOCIALCAPITAL,"ENV_COMMUNITY_GOVERNANCE, ROLE_FIELD_SOCIALCAPITAL",OK,False,True,0.5,1.0,0.6667,True
+1,2,온라인 커뮤니티 활동이 신뢰반경에 미치는 양면적 효과,False,"ENV_COMMUNITY_SUBSCRIPTION, ROLE_FIELD_SOCIALCAPITAL","ENV_COMMUNITY_SUBSCRIPTION, ROLE_FIELD_SOCIALCAPITAL",OK,True,True,1.0,1.0,1.0,True
+1,13,메갈리아의 두 딸들: 익명성 수준에 따른 온라인 커뮤니티의 정체성 분화,False,"ENV_COMMUNITY_LIFECYCLE, ENV_ONLINE_ANNONIMITY","ENV_ONLINE_ANNONIMITY, ROLE_FIELD_SOCIALCAPITAL",OK,False,False,0.5,0.5,0.5,True
+1,26,온라인 커뮤니티의 신뢰형성이 구매의도에 미치는 영향,False,ROLE_FIELD_SOCIALCAPITAL,,ERR,False,False,0.0,0.0,0.0,True
+1,5,인터넷 커뮤니티 활동이 윤리적 소비 참여에 미치는 영향: 온라인 사회자본과 공감 경험의 역할을 중심으로,False,ROLE_FIELD_SOCIALCAPITAL,ROLE_FIELD_SOCIALCAPITAL,OK,True,True,1.0,1.0,1.0,True
+1,14,온라인 커뮤니티의 상호작용 의례: 자전거 커뮤니티 사례를 중심으로,False,ROLE_FIELD_SOCIALCAPITAL,"ENV_COMMUNITY_GOVERNANCE, ROLE_FIELD_SOCIALCAPITAL",OK,False,True,0.5,1.0,0.6667,True
+2,24,성별영향평가를 통한 김포한강신도시의 여성친화도시 계획수립에 관한 연구,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+2,4,청년 불안정 노동자의 자본주의 미시세계: 물류센터와 편의점의 노동체험 서사에 대한 질적 내용분석,False,ROLE_WINDOW_MISC,ROLE_WINDOW_MISC,OK,True,True,1.0,1.0,1.0,True
+2,20,뉴노멀 시대에 한국교회의 변화와 전망: 온라인 공동체를 중심으로,True,ERR,,ERR,True,True,1.0,1.0,1.0,True
+2,6,게시글의 높은 추천 수는 커뮤니티 내 여론을 의미하는가?: 에펨코리아(FMkorea)의 게시글에 참여한 이용자 다양성과 추천 수의 관계,False,"ENV_COMMUNITY_GOVERNANCE, ROLE_FIELD_PUBLICSPHERE","ENV_COMMUNITY_GOVERNANCE, ROLE_FIELD_PUBLICSPHERE",OK,True,True,1.0,1.0,1.0,True
+2,15,온라인 커뮤니티의 사회적 자본과 제도: 디시인사이드 바람의 화원/바람의 나라 갤러리를 중심으로,False,ROLE_FIELD_SOCIALCAPITAL,"ENV_COMMUNITY_GOVERNANCE, ROLE_FIELD_SOCIALCAPITAL",OK,False,True,0.5,1.0,0.6667,True
+2,2,온라인 커뮤니티 활동이 신뢰반경에 미치는 양면적 효과,False,"ENV_COMMUNITY_SUBSCRIPTION, ROLE_FIELD_SOCIALCAPITAL","ENV_COMMUNITY_SUBSCRIPTION, ROLE_FIELD_SOCIALCAPITAL",OK,True,True,1.0,1.0,1.0,True
+2,13,메갈리아의 두 딸들: 익명성 수준에 따른 온라인 커뮤니티의 정체성 분화,False,"ENV_COMMUNITY_LIFECYCLE, ENV_ONLINE_ANNONIMITY","ENV_ONLINE_ANNONIMITY, ROLE_FIELD_SOCIALCAPITAL",OK,False,False,0.5,0.5,0.5,True
+2,26,온라인 커뮤니티의 신뢰형성이 구매의도에 미치는 영향,False,ROLE_FIELD_SOCIALCAPITAL,,ERR,False,False,0.0,0.0,0.0,True
+2,5,인터넷 커뮤니티 활동이 윤리적 소비 참여에 미치는 영향: 온라인 사회자본과 공감 경험의 역할을 중심으로,False,ROLE_FIELD_SOCIALCAPITAL,ROLE_FIELD_SOCIALCAPITAL,OK,True,True,1.0,1.0,1.0,True
+2,14,온라인 커뮤니티의 상호작용 의례: 자전거 커뮤니티 사례를 중심으로,False,ROLE_FIELD_SOCIALCAPITAL,"ENV_COMMUNITY_GOVERNANCE, ROLE_FIELD_SOCIALCAPITAL",OK,False,True,0.5,1.0,0.6667,True
+3,24,성별영향평가를 통한 김포한강신도시의 여성친화도시 계획수립에 관한 연구,True,ERR,,ERR,True,True,1.0,1.0,1.0,True

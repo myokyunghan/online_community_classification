@@ -1,1 +1,2 @@
 ﻿repeat,n_total,n_normal,n_err,exact_normal,covered_normal,err_correct,combined_exact_rate,combined_covered_rate,avg_precision,avg_recall,avg_f1
+1,10,8,2,5,6,2,0.7,0.8,0.75,0.8,0.7667

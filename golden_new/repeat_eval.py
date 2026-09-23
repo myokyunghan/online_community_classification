@@ -12,8 +12,8 @@ flush한다 — 중간에 중단돼도 그때까지 완료된 반복은 그대�
 반복부터 처음부터 다시 돈다. --start-repeat을 직접 지정하면 그 번호부터(이후 자료는 지우고)
 시작한다.
 
-자체 서버(143.248.248.192, Ollama로 띄운 Qwen3.8:27b-mlx)를 호출한다 — 인증이 필요 없어 API 키
-설정은 불필요하다.
+원격 vLLM 서버(143.248.248.192:11435, mlx-community/Qwen3.8-27B-4bit)를 호출한다 — 인증이 필요 없어
+API 키 설정은 불필요하다.
 
 사용 예:
     python3 golden_new/repeat_eval.py --repeats 100 --fewshot-ids 3,11,22 --runs-per-paper 3
@@ -22,10 +22,13 @@ flush한다 — 중간에 중단돼도 그때까지 완료된 반복은 그대�
 """
 
 import argparse
+import concurrent.futures
 import csv
 import os
+import random
 import statistics
 import sys
+import threading
 import time
 import traceback
 from pathlib import Path
@@ -122,6 +125,64 @@ def _compute_prf1(gold: set, pred: set) -> tuple[float, float, float]:
     return precision, recall, f1
 
 
+def _classify_and_score(row: dict, api_key, reasoning_effort, runs_per_paper, max_retries, retry_wait_seconds,
+                         sleep_seconds, fewshot_examples, env_fewshot_examples, division_fewshot_examples,
+                         rep: int) -> dict:
+    is_err_gold = row.get("class1", "").strip().upper() == "ERR"
+    try:
+        predictions = classify_row_multi(
+            row,
+            api_key,
+            reasoning_effort,
+            runs_per_paper,
+            max_retries,
+            retry_wait_seconds,
+            sleep_seconds,
+            fewshot_examples,
+            env_fewshot_examples,
+            division_fewshot_examples,
+        )
+        aggregate = aggregate_predictions(predictions)
+        result = compare_row(row, predictions, aggregate)
+    except Exception as exc:  # API 오류, JSON 파싱 실패 등 — 이 논문은 이번 반복에서 실패로 기록
+        print(f"    경고: id={row['id']} 처리 실패 - {exc}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        result = {
+            "gold_codes": "",
+            "majority_status": "",
+            "majority_codes": "",
+            "exact_match": False,
+            "gold_covered": False,
+            "full_agreement": "",
+        }
+
+    gold = _code_set(result.get("gold_codes", ""))
+    pred = _code_set(result.get("majority_codes", ""))
+    if is_err_gold:
+        # ERR 케이스는 코드 집합 비교가 의미 없으므로, 상태 일치 여부를 1.0/0.0으로 환산해
+        # precision/recall/f1에 그대로 반영한다 (맞았으면 1.0, 아니면 0.0).
+        correct = result.get("exact_match") is True
+        precision = recall = f1 = 1.0 if correct else 0.0
+    else:
+        precision, recall, f1 = _compute_prf1(gold, pred)
+
+    return {
+        "repeat": rep,
+        "id": row["id"],
+        "title": row["title"],
+        "is_err_gold": is_err_gold,
+        "gold_codes": result.get("gold_codes", ""),
+        "majority_codes": result.get("majority_codes", ""),
+        "majority_status": result.get("majority_status", ""),
+        "exact_match": result.get("exact_match"),
+        "gold_covered": result.get("gold_covered"),
+        "precision": round(precision, 4),
+        "recall": round(recall, 4),
+        "f1": round(f1, 4),
+        "full_agreement": result.get("full_agreement", ""),
+    }
+
+
 def run_one_repeat(
     rep: int,
     test_rows: list[dict],
@@ -136,63 +197,42 @@ def run_one_repeat(
     division_fewshot_examples: list,
     raw_writer: csv.DictWriter,
     raw_file,
+    concurrency: int = 1,
 ) -> list[dict]:
+    if concurrency > 1:
+        # vLLM 서버는 동시 요청을 continuous batching으로 묶어 처리하므로, 논문 여러 편을
+        # 동시에 쏘면 순차 처리보다 훨씬 빠르다. raw CSV엔 완료되는 순서대로 기록되지만
+        # 반환값(rep_rows)엔 순서가 중요하지 않아(요약 통계만 냄) 문제 없다.
+        rep_rows: list[dict | None] = [None] * len(test_rows)
+        write_lock = threading.Lock()
+        done_count = 0
+
+        def _run(i: int, row: dict) -> None:
+            nonlocal done_count
+            row_out = _classify_and_score(
+                row, api_key, reasoning_effort, runs_per_paper, max_retries, retry_wait_seconds,
+                sleep_seconds, fewshot_examples, env_fewshot_examples, division_fewshot_examples, rep,
+            )
+            with write_lock:
+                raw_writer.writerow(row_out)
+                raw_file.flush()
+                rep_rows[i - 1] = row_out
+                done_count += 1
+                print(f"  [{done_count}/{len(test_rows)}] id={row['id']} - {row['title'][:30]}... 완료", file=sys.stderr)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
+            futures = [executor.submit(_run, i, row) for i, row in enumerate(test_rows, 1)]
+            for future in concurrent.futures.as_completed(futures):
+                future.result()
+        return rep_rows
+
     rep_rows = []
     for i, row in enumerate(test_rows, 1):
         print(f"  [{i}/{len(test_rows)}] id={row['id']} - {row['title'][:30]}...", file=sys.stderr)
-        is_err_gold = row.get("class1", "").strip().upper() == "ERR"
-        try:
-            predictions = classify_row_multi(
-                row,
-                api_key,
-                reasoning_effort,
-                runs_per_paper,
-                max_retries,
-                retry_wait_seconds,
-                sleep_seconds,
-                fewshot_examples,
-                env_fewshot_examples,
-                division_fewshot_examples,
-            )
-            aggregate = aggregate_predictions(predictions)
-            result = compare_row(row, predictions, aggregate)
-        except Exception as exc:  # API 오류, JSON 파싱 실패 등 — 이 논문은 이번 반복에서 실패로 기록
-            print(f"    경고: 처리 실패 - {exc}", file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
-            result = {
-                "gold_codes": "",
-                "majority_status": "",
-                "majority_codes": "",
-                "exact_match": False,
-                "gold_covered": False,
-                "full_agreement": "",
-            }
-
-        gold = _code_set(result.get("gold_codes", ""))
-        pred = _code_set(result.get("majority_codes", ""))
-        if is_err_gold:
-            # ERR 케이스는 코드 집합 비교가 의미 없으므로, 상태 일치 여부를 1.0/0.0으로 환산해
-            # precision/recall/f1에 그대로 반영한다 (맞았으면 1.0, 아니면 0.0).
-            correct = result.get("exact_match") is True
-            precision = recall = f1 = 1.0 if correct else 0.0
-        else:
-            precision, recall, f1 = _compute_prf1(gold, pred)
-
-        row_out = {
-            "repeat": rep,
-            "id": row["id"],
-            "title": row["title"],
-            "is_err_gold": is_err_gold,
-            "gold_codes": result.get("gold_codes", ""),
-            "majority_codes": result.get("majority_codes", ""),
-            "majority_status": result.get("majority_status", ""),
-            "exact_match": result.get("exact_match"),
-            "gold_covered": result.get("gold_covered"),
-            "precision": round(precision, 4),
-            "recall": round(recall, 4),
-            "f1": round(f1, 4),
-            "full_agreement": result.get("full_agreement", ""),
-        }
+        row_out = _classify_and_score(
+            row, api_key, reasoning_effort, runs_per_paper, max_retries, retry_wait_seconds,
+            sleep_seconds, fewshot_examples, env_fewshot_examples, division_fewshot_examples, rep,
+        )
         raw_writer.writerow(row_out)
         raw_file.flush()
         rep_rows.append(row_out)
@@ -259,6 +299,27 @@ def main():
     )
     parser.add_argument("--raw-output", default=str(DEFAULT_RAW_OUTPUT), help="반복×논문 단위 원자료 CSV 경로")
     parser.add_argument("--summary-output", default=str(DEFAULT_SUMMARY_OUTPUT), help="반복별 요약 CSV 경로")
+    parser.add_argument(
+        "--sample", type=int, default=None, help="테스트 대상(few-shot 제외분)에서 무작위 N편만 뽑아서 실행 (빠른 확인용)"
+    )
+    parser.add_argument("--seed", type=int, default=None, help="--sample 무작위 추출 시드 (재현용, 미지정 시 매번 다름)")
+    parser.add_argument(
+        "--ids", default=None, help="쉼표로 구분한 테스트 대상 id를 직접 지정 (지정 시 --sample 무시)"
+    )
+    parser.add_argument(
+        "--resample-each-repeat",
+        action="store_true",
+        help="--sample과 함께 쓰면, 처음에 한 번만 N편을 뽑아 반복 내내 재사용하는 대신 "
+        "반복(repeat)마다 새로 무작위 N편을 뽑는다 - '같은 문제로 얼마나 흔들리는지'가 아니라 "
+        "'다양한 문제 조합에서 평균적으로 얼마나 맞히는지'를 보고 싶을 때 쓴다",
+    )
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=1,
+        help="한 반복 내에서 동시에 처리할 논문 수 (기본 1=순차). vLLM 서버는 동시 요청을 "
+        "continuous batching으로 묶어 처리하므로 1보다 크게 주면 훨씬 빨라진다 - 5~10 정도로 시작 권장",
+    )
     args = parser.parse_args()
 
     api_key = args.api_key or os.environ.get("NVIDIA_API_KEY") or DUMMY_API_KEY
@@ -290,13 +351,36 @@ def main():
 
     fewshot_pool = [id_to_row[i] for i in wanted_ids]
     fewshot_id_set = set(wanted_ids)
-    test_rows = [r for r in rows if r["id"] not in fewshot_id_set]
+    full_test_rows = [r for r in rows if r["id"] not in fewshot_id_set]
+    test_rows = full_test_rows
+
+    if args.resample_each_repeat and not args.sample:
+        sys.exit("오류: --resample-each-repeat은 --sample과 함께 써야 합니다.")
+
+    sample_rng = None
+    if args.ids:
+        wanted_test_ids = [s.strip() for s in args.ids.split(",") if s.strip()]
+        test_id_to_row = {r["id"]: r for r in full_test_rows}
+        missing_test = [i for i in wanted_test_ids if i not in test_id_to_row]
+        if missing_test:
+            sys.exit(f"오류: --ids 중 테스트 대상(few-shot 제외분)에서 못 찾은 id: {', '.join(missing_test)}")
+        test_rows = [test_id_to_row[i] for i in wanted_test_ids]
+    elif args.sample and not args.resample_each_repeat:
+        rng = random.Random(args.seed)
+        test_rows = rng.sample(full_test_rows, min(args.sample, len(full_test_rows)))
+    elif args.sample and args.resample_each_repeat:
+        # 반복마다 새로 뽑아야 하므로 여기서는 고정하지 않고, rng만 준비해서 반복 루프 안에서
+        # 매번 rng.sample()을 호출한다 (시드를 고정해도 매 호출마다 다른 결과가 나오도록
+        # random.Random 인스턴스를 한 번만 만들고 계속 재사용한다).
+        sample_rng = random.Random(args.seed)
+
     fewshot_examples = [(build_abstract_only_text(r), build_ideal_role_output(r)) for r in fewshot_pool]
     env_fewshot_examples = [(build_abstract_only_text(r), build_ideal_env_output(r)) for r in fewshot_pool]
     division_fewshot_examples = [(build_abstract_only_text(r), build_ideal_division_output(r)) for r in fewshot_pool]
 
+    sample_desc = f"{args.sample}편씩 반복마다 새로 무작위 추출" if sample_rng else f"{len(test_rows)}편"
     print(
-        f"few-shot 고정: {', '.join(wanted_ids)} / 테스트 대상: {len(test_rows)}편 / "
+        f"few-shot 고정: {', '.join(wanted_ids)} / 테스트 대상: {sample_desc} / "
         f"반복: {args.start_repeat}~{args.repeats} / runs-per-paper: {args.runs_per_paper}",
         file=sys.stderr,
     )
@@ -316,6 +400,12 @@ def main():
     all_summaries = []
     try:
         for rep in range(args.start_repeat, args.repeats + 1):
+            if sample_rng is not None:
+                test_rows = sample_rng.sample(full_test_rows, min(args.sample, len(full_test_rows)))
+                print(
+                    f"  이번 반복 표본: {', '.join(r['id'] for r in test_rows)}",
+                    file=sys.stderr,
+                )
             print(f"\n=== 반복 {rep}/{args.repeats} ===", file=sys.stderr)
             rep_rows = run_one_repeat(
                 rep,
@@ -331,6 +421,7 @@ def main():
                 division_fewshot_examples,
                 raw_writer,
                 raw_file,
+                args.concurrency,
             )
             summary = summarize_repeat(rep, rep_rows)
             summary_writer.writerow(summary)

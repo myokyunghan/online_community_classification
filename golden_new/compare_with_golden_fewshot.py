@@ -3,8 +3,8 @@ golden_new/classify_paper_fewshot.py(시스템프롬프트+few-shot, 요약 단�
 분류하고 정답과 비교한다. 재시도/다수결 집계/정답 비교는 루트 compare_with_golden.py의
 범용 로직을 재사용한다.
 
-ICR/과 로직은 동일하되, NVIDIA API 대신 자체 서버(143.248.248.192, Ollama로 띄운 Qwen3.8:27b-mlx)를
-호출한다 — MODEL/NVIDIA_BASE_URL은 이 폴더의 classify_paper.py에서 따로 정의한다.
+ICR/과 로직은 동일하되, NVIDIA API 대신 원격 vLLM 서버(143.248.248.192:11435, mlx-community/Qwen3.8-27B-4bit)를
+호출한다 — MODEL/NVIDIA_BASE_URL/샘플링 옵션은 이 폴더의 classify_paper.py에서 따로 정의한다.
 
 few-shot 예시는 golden CSV에서 무작위로 뽑되, ERR(전부 미부여) 사례를 최소 1개는 항상
 포함시킨다 — 순수 무작위로는 ERR 사례가 하나도 안 걸려서 모델이 "아무 코드도 없음" 출력
@@ -23,17 +23,19 @@ few-shot으로 뽑힌 논문은 테스트 대상에서 자동 제외된다.
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import csv
 import os
 import random
 import sys
+import threading
 import time
 import traceback
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from classify_paper import DUMMY_API_KEY, MODEL  # noqa: E402  (이 폴더의 버전 — 자체 서버용)
+from classify_paper import DUMMY_API_KEY, MODEL, SAMPLING_TEMPERATURE  # noqa: E402  (이 폴더의 버전 — 자체 서버용)
 from classify_paper_fewshot import (  # noqa: E402  (이 폴더의 버전)
     build_abstract_only_text,
     build_ideal_division_output,
@@ -81,7 +83,7 @@ def classify_row(
     row: dict,
     api_key: str,
     reasoning_effort: str,
-    temperature: float = 0.0,
+    temperature: float = SAMPLING_TEMPERATURE,
     fewshot_examples: list[tuple[str, dict]] | None = None,
     env_fewshot_examples: list[tuple[str, dict]] | None = None,
     division_fewshot_examples: list[tuple[str, dict]] | None = None,
@@ -217,6 +219,13 @@ def main():
     parser.add_argument("--sleep", type=float, default=1.0, help="API 호출 사이 대기 시간(초, 기본 1.0)")
     parser.add_argument("--max-retries", type=int, default=3, help="타임아웃/연결 오류 시 최대 재시도 횟수 (기본 3)")
     parser.add_argument("--retry-wait-minutes", type=float, default=3.0, help="재시도 전 대기 시간(분, 기본 3.0)")
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=1,
+        help="동시에 처리할 논문 수 (기본 1=순차). vLLM 서버는 동시 요청을 continuous batching으로 "
+        "묶어 처리하므로 1보다 크게 주면 훨씬 빨라진다 - 5~10 정도로 시작해보는 걸 권장",
+    )
     args = parser.parse_args()
 
     api_key = args.api_key or os.environ.get("NVIDIA_API_KEY") or DUMMY_API_KEY
@@ -293,9 +302,7 @@ def main():
     writer = csv.DictWriter(output_file, fieldnames=RESULT_FIELDNAMES)
     writer.writeheader()
 
-    results = []
-    for i, row in enumerate(rows, 1):
-        print(f"[{i}/{len(rows)}] id={row['id']} - {row['title'][:30]}...", file=sys.stderr)
+    def _classify_one(row: dict) -> dict:
         try:
             predictions = classify_row_multi(
                 row,
@@ -313,11 +320,11 @@ def main():
             # 이미 이 계산을 해준다. full_agreement 여부는 결과 CSV에 그대로 남아있어
             # 3번 다 똑같이 나온 논문과 다수결로만 채택된 논문을 구분해볼 수 있다.
             aggregate = aggregate_predictions(predictions)
-            result = compare_row(row, predictions, aggregate)
+            return compare_row(row, predictions, aggregate)
         except Exception as exc:  # API 오류, JSON 파싱 실패 등
-            print(f"  경고: 처리 실패 - {exc}", file=sys.stderr)
+            print(f"  경고: id={row['id']} 처리 실패 - {exc}", file=sys.stderr)
             traceback.print_exc(file=sys.stderr)
-            result = {
+            return {
                 "id": row["id"],
                 "title": row["title"],
                 "class1_raw": row.get("class1", ""),
@@ -338,11 +345,35 @@ def main():
                 "focuses": "",
                 "rationales": "",
             }
-        results.append(result)
-        writer.writerow(result)
-        output_file.flush()
-        if i < len(rows):
-            time.sleep(args.sleep)
+
+    results: list[dict | None] = [None] * len(rows)
+    write_lock = threading.Lock()
+    done_count = 0
+
+    def _run_and_write(i: int, row: dict) -> None:
+        nonlocal done_count
+        result = _classify_one(row)
+        with write_lock:
+            writer.writerow(result)
+            output_file.flush()
+            results[i - 1] = result
+            done_count += 1
+            print(f"[{done_count}/{len(rows)}] id={row['id']} - {row['title'][:30]}... 완료", file=sys.stderr)
+
+    if args.concurrency > 1:
+        # vLLM 서버가 동시 요청을 continuous batching으로 묶어 처리하므로, 여기서 여러 논문을
+        # 동시에 쏘면 순차 호출보다 훨씬 빠르다. CSV에는 완료되는 순서대로 기록되지만(원래
+        # CSV의 id 순서와 다를 수 있음), results 리스트 자체는 원래 순서를 유지한다.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as executor:
+            futures = [executor.submit(_run_and_write, i, row) for i, row in enumerate(rows, 1)]
+            for future in concurrent.futures.as_completed(futures):
+                future.result()  # 스레드 안에서 난 예외를 여기서 다시 올려서 눈에 띄게 한다
+    else:
+        for i, row in enumerate(rows, 1):
+            print(f"[{i}/{len(rows)}] id={row['id']} - {row['title'][:30]}...", file=sys.stderr)
+            _run_and_write(i, row)
+            if i < len(rows):
+                time.sleep(args.sleep)
 
     output_file.close()
 

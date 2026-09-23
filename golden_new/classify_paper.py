@@ -1,11 +1,18 @@
 """
-자체 서버(143.248.248.192, Ollama로 띄운 qwen3.8:27b-mlx)를 OpenAI 호환 API로
-공통 상수/유틸. golden_new/ 폴더 전용 — NVIDIA_BASE_URL/MODEL을 여기서만 바꿔서
-ICR/(NVIDIA API 사용)에는 영향이 없다. classify_paper_fewshot.py/compare_with_golden_fewshot.py/
-repeat_eval.py가 이 파일의 MODEL/NVIDIA_BASE_URL/derive_role_env_from_audit을 가져다 쓴다.
+원격 서버(143.248.248.192)의 Ollama(OpenAI 호환 엔드포인트, 포트 11434)를 호출하는 공통
+상수/유틸. golden_new/ 폴더 전용 — NVIDIA_BASE_URL/MODEL을 여기서만 바꿔서 ICR/(NVIDIA API
+사용)에는 영향이 없다. classify_paper_fewshot.py/compare_with_golden_fewshot.py/repeat_eval.py가
+이 파일의 MODEL/NVIDIA_BASE_URL/derive_role_env_from_audit을 가져다 쓴다.
 
-vLLM 서버는 API 키 인증을 안 걸어놨으므로, --api-key/NVIDIA_API_KEY 미지정 시 더미 문자열을
-그대로 쓴다 (openai 클라이언트가 api_key를 필수로 요구해서 빈 값은 안 됨).
+로컬/원격 자체 서버는 API 키 인증을 안 걸어놨으므로, --api-key/NVIDIA_API_KEY 미지정 시 더미
+문자열을 그대로 쓴다 (openai 클라이언트가 api_key를 필수로 요구해서 빈 값은 안 됨).
+
+원래 이 서버는 vLLM(포트 11435)이었는데, 결과가 계속 안 좋게 나와서 같은 서버에 떠 있는
+Ollama(포트 11434)로 서빙 스택 자체를 바꿔서 비교해보는 중이다. 모델은 이전에 vLLM으로 쓰던
+것과 같은 계열인 qwen3.8:27b-mlx(Ollama 태그명)로 맞췄다 — 서빙 스택 차이만 보려고 모델은
+그대로 유지. Qwen2.5용으로 넣었던 top_p/top_k/repetition_penalty 기본값은 모델이 다시 Qwen3로
+바뀌었으니 일단 빼뒀고, Ollama가 이 파라미터들을 어떻게 받는지(top_k/repetition_penalty가
+extra_body로 먹히는지, thinking을 끄려면 어떻게 해야 하는지)는 아직 확인 전이다.
 
 build_messages/classify_paper/main(단일 호출 CLI, prompt_template.txt 기반)은 golden_new의
 3단계(division/role/env) 파이프라인에서 직접 쓰이진 않지만, 루트 compare_with_golden.py가
@@ -20,13 +27,43 @@ import os
 import sys
 from pathlib import Path
 
+import httpx
 from openai import OpenAI
 
-NVIDIA_BASE_URL = "http://143.248.248.192:11434/v1"  # 자체 Ollama 서버 (OpenAI 호환 엔드포인트)
-DUMMY_API_KEY = "not-needed"  # Ollama 서버는 인증을 안 걸어놔서 아무 문자열이나 허용
+# NVIDIA_BASE_URL = "http://143.248.248.192:11435/v1"  # 원격 vLLM 서버 (OpenAI 호환 엔드포인트, 포트 11435)
+NVIDIA_BASE_URL = "http://143.248.248.192:11434/v1"  # 같은 서버의 Ollama (OpenAI 호환 엔드포인트, 포트 11434)
+# ver13에서 정확도 최고치(85%)를 기록해서 최종 확정 - vLLM(4bit affine)은 67%, Ollama(nvfp4)가
+# 더 정밀한 양자화라 정확도가 높음(속도는 느림). 최종 검증용은 여기, 빠른 반복 실험은 vLLM으로.
+OLLAMA_NATIVE_CHAT_URL = "http://143.248.248.192:11434/api/chat"  # OpenAI 호환 레이어를 안 거치는
+# Ollama 네이티브 엔드포인트 — chat_template_kwargs가 안 먹혀서(직접 테스트로 확인) thinking을
+# 실제로 끄려면 이걸 써야 한다 ("think": false는 네이티브에서만 작동함).
 
-MODEL = "qwen3.8:27b-mlx"
+# thinking 켜진 채(OpenAI 호환 엔드포인트, 요청당 1~2분) vs 네이티브로 thinking 끈 채(요청당
+# 몇 초로 추정, 아직 파이프라인 규모로 검증 전) 어느 쪽이 분류 품질이 나은지 직접 비교해보려고
+# 둘 다 골라 쓸 수 있게 만든다.
+USE_OLLAMA_NATIVE_THINK_OFF = False
+# NVIDIA_BASE_URL = "http://localhost:11435/v1"  # 로컬 mlx-lm 서버 (pip install mlx-lm 후,
+# `python3 -m mlx_lm.server --model mlx-community/Qwen2.5-32B-Instruct-8bit --port 11435`로 띄운다.
+# 실제로 테스트해보니 이 Mac에서는 호출 1번에 3분 넘게 걸려서(원격 vLLM은 몇 초) 파이프라인
+# 반복 실행엔 못 쓴다 - 원격/로컬 결과가 일치하는지 소수 논문으로 비교할 때만 잠깐씩 쓴다.
+DUMMY_API_KEY = "not-needed"  # 로컬 서버는 인증을 안 걸어놔서 아무 문자열이나 허용
+
+# MODEL = "mlx-community/Qwen3.8-27B-4bit"  # vLLM에서 쓰던 이름
+# MODEL = "mlx-community/Qwen2.5-32B-Instruct-8bit"  # vLLM, Qwen2.5로 바꿔봤을 때
+MODEL = "qwen3.8:27b-mlx"  # 같은 Qwen3.8-27B를 Ollama 태그명으로 호출 - ver13 최종 확정 설정
+# MODEL = "mlx-community/Qwen3-30B-A3B-4bit"  # 더 큰 모델(30B, MoE 활성 파라미터 3B), vLLM에서 테스트했으나 정확도 41%로 더 나쁨
 TEMPLATE_PATH = Path(__file__).parent / "prompt_template.txt"
+
+# ver1~16 실험 결론(EXPERIMENTS.md 참고): Ollama+qwen3.8:27b-mlx+thinking ON(ver13)이
+# 완전일치 85%로 최고 - vLLM(affine 4bit, 67%)과의 격차는 서빙 스택이 아니라 양자화 정밀도
+# 차이(Ollama는 nvfp4, group_size=16으로 더 정밀)로 결론남. top_p/top_k는 안 보내도 Ollama
+# Modelfile 기본값(top_p=0.95/top_k=20)이 그대로 적용된다.
+#
+# ENABLE_THINKING은 Ollama의 OpenAI 호환 엔드포인트에서 실제로는 안 먹힌다(직접 테스트로
+# 확인) - Ollama는 이 값과 무관하게 항상 thinking을 켠 채로 응답한다. vLLM으로 되돌아갈
+# 일이 생기면 그때는 이 값이 실제로 작동한다.
+SAMPLING_TEMPERATURE = 0.7
+ENABLE_THINKING = True
 
 
 def build_messages(paper_text: str, model: str) -> list[dict]:
@@ -89,15 +126,40 @@ def derive_role_env_from_audit(parsed: dict) -> dict:
     return parsed
 
 
-def classify_paper(paper_text: str, model: str, api_key: str, temperature: float = 0.0) -> str:
-    client = OpenAI(base_url=NVIDIA_BASE_URL, api_key=api_key)
+def call_ollama_native(messages: list[dict], model: str, temperature: float) -> str:
+    """Ollama 네이티브 /api/chat을 직접 호출한다 (OpenAI 호환 레이어를 안 거침). "think": false가
+    여기서는 실제로 thinking을 끈다 - OpenAI 호환 엔드포인트의 chat_template_kwargs와 달리
+    직접 테스트로 확인된 유일한 방법이다."""
+    response = httpx.post(
+        OLLAMA_NATIVE_CHAT_URL,
+        json={
+            "model": model,
+            "messages": messages,
+            "think": False,
+            "stream": False,
+            "format": "json",
+            "options": {"temperature": temperature},
+        },
+        timeout=180.0,
+    )
+    response.raise_for_status()
+    return response.json()["message"]["content"]
 
+
+def classify_paper(paper_text: str, model: str, api_key: str, temperature: float = SAMPLING_TEMPERATURE) -> str:
+    messages = build_messages(paper_text, model)
+
+    if USE_OLLAMA_NATIVE_THINK_OFF:
+        return call_ollama_native(messages, model, temperature)
+
+    client = OpenAI(base_url=NVIDIA_BASE_URL, api_key=api_key)
     response = client.chat.completions.create(
         model=model,
-        messages=build_messages(paper_text, model),
+        messages=messages,
         temperature=temperature,
         max_tokens=8192,
         response_format={"type": "json_object"},
+        extra_body={"chat_template_kwargs": {"enable_thinking": ENABLE_THINKING}},
     )
     return response.choices[0].message.content
 

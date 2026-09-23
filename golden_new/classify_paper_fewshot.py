@@ -27,8 +27,9 @@ user/assistant 대화 턴으로 넣는다(`_fewshot_turns`). gpt-oss-120b는 멀
 finish_reason='stop'인데 content가 비는 문제가 있어 텍스트 삽입 방식을 썼지만, 여기서는
 그 문제가 없다는 전제로 일반적인 chat 형식 few-shot을 쓴다.
 
-자체 서버(143.248.248.192, vLLM으로 띄운 mlx-community/Qwen3.8-27B-4bit)를 호출한다 — 인증이 필요 없어 API 키
-설정은 불필요하다. NVIDIA_BASE_URL/MODEL은 이 폴더의 classify_paper.py에서 정의한다.
+원격 vLLM 서버(143.248.248.192:11435, mlx-community/Qwen3.8-27B-4bit)를 호출한다 — 인증이 필요 없어 API 키
+설정은 불필요하다. NVIDIA_BASE_URL/MODEL/샘플링 옵션(top_p/top_k/enable_thinking)은 이 폴더의
+classify_paper.py에서 정의한다.
 
 사용 예:
     python3 golden_new/classify_paper_fewshot.py --id 1
@@ -50,7 +51,16 @@ from openai import OpenAI
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from classify_paper import DUMMY_API_KEY, MODEL, NVIDIA_BASE_URL, derive_role_env_from_audit  # noqa: E402
+from classify_paper import (  # noqa: E402
+    DUMMY_API_KEY,
+    ENABLE_THINKING,
+    MODEL,
+    NVIDIA_BASE_URL,
+    SAMPLING_TEMPERATURE,
+    USE_OLLAMA_NATIVE_THINK_OFF,
+    call_ollama_native,
+    derive_role_env_from_audit,
+)
 
 GOLDEN_NEW_DIR = Path(__file__).parent
 
@@ -309,14 +319,26 @@ def build_err_result(reasoning: str) -> dict:
 
 def _call(client: OpenAI, model: str, messages: list[dict], temperature: float, reasoning_effort: str) -> str:
     """reasoning_effort는 인자로 받되 실제로는 쓰지 않는다 — NVIDIA gpt-oss(harmony 포맷)
-    전용 extra_body 파라미터였고, vLLM으로 띄운 Qwen 서버는 이걸 모르므로 요청에서 뺐다.
-    호출부(CLI --reasoning-effort 등)와의 시그니처 호환을 위해 인자 자체는 남겨둔다."""
+    전용 extra_body 파라미터라 vLLM/Ollama 둘 다 이걸 모르므로 요청에서 뺐다. 호출부
+    (CLI --reasoning-effort 등)와의 시그니처 호환을 위해 인자 자체는 남겨둔다.
+
+    top_p/top_k는 Ollama qwen3.8:27b-mlx Modelfile의 기본값(top_p=0.95/top_k=20)과 맞춰서
+    vLLM 쪽에도 명시적으로 넣는다 — 원래 vLLM엔 이 기본값이 없어서 top_p=1.0(사실상 무제한)로
+    돌아갔던 게 Ollama 대비 정확도가 낮게 나온 원인 중 하나로 추정된다.
+
+    chat_template_kwargs(enable_thinking=False)는 vLLM에서는 실제로 작동하지만 Ollama의
+    OpenAI 호환 엔드포인트에서는 안 먹혀서(직접 테스트로 확인), Ollama에서 thinking을 진짜로
+    끄려면 USE_OLLAMA_NATIVE_THINK_OFF=True로 네이티브 /api/chat 경로를 대신 써야 한다."""
+    if USE_OLLAMA_NATIVE_THINK_OFF:
+        return call_ollama_native(messages, model, temperature)
+
     response = client.chat.completions.create(
         model=model,
         messages=messages,
         temperature=temperature,
         max_tokens=8192,
         response_format={"type": "json_object"},
+        extra_body={"chat_template_kwargs": {"enable_thinking": ENABLE_THINKING}},
     )
     choice = response.choices[0]
     content = choice.message.content
@@ -331,7 +353,7 @@ def classify_paper_fewshot(
     paper_text: str,
     model: str,
     api_key: str,
-    temperature: float = 0.0,
+    temperature: float = SAMPLING_TEMPERATURE,
     reasoning_effort: str = "low",
     fewshot_examples: list[tuple[str, dict]] | None = None,
     env_fewshot_examples: list[tuple[str, dict]] | None = None,
