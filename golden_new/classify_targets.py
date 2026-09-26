@@ -27,9 +27,11 @@ NVIDIA_BASE_URL/MODEL/thinking on-off 등은 golden_new/classify_paper.py에서 
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import csv
 import os
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -216,6 +218,12 @@ def main():
     parser.add_argument(
         "--overwrite", action="store_true", help="기존 --output 파일을 무시하고 처음부터 다시 처리"
     )
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=1,
+        help="동시에 처리할 논문 수 (기본 1=순차). 서버가 동시 요청을 병렬로 처리할 때만 빨라진다",
+    )
     args = parser.parse_args()
 
     api_key = args.api_key or os.environ.get("NVIDIA_API_KEY") or DUMMY_API_KEY
@@ -256,38 +264,54 @@ def main():
     print(f"처리 대상: {len(todo)}편 (전체 {len(rows)}편 중)", file=sys.stderr)
 
     counts = {"OK": 0, "ERR": 0, "NO_ABSTRACT": 0, "FAILED": 0}
-    try:
-        for i, row in enumerate(todo, 1):
-            print(f"[{i}/{len(todo)}] id={row['id']} - {row['title'][:40]}...", file=sys.stderr)
+    write_lock = threading.Lock()
+    done_count = 0
 
-            if not row["abstract"]:
-                result = no_abstract_result(row)
-            else:
-                try:
-                    predictions = classify_row_multi(
-                        row,
-                        api_key,
-                        args.reasoning_effort,
-                        args.runs_per_paper,
-                        args.max_retries,
-                        args.retry_wait_minutes * 60,
-                        args.sleep,
-                        fewshot_examples,
-                        env_fewshot_examples,
-                        division_fewshot_examples,
-                    )
-                    aggregate = aggregate_predictions(predictions)
-                    result = format_result(row, predictions, aggregate)
-                except Exception as exc:
-                    print(f"  경고: 처리 실패 - {exc}", file=sys.stderr)
-                    result = failed_result(row, exc)
+    def _classify_one(row: dict) -> dict:
+        if not row["abstract"]:
+            return no_abstract_result(row)
+        try:
+            predictions = classify_row_multi(
+                row,
+                api_key,
+                args.reasoning_effort,
+                args.runs_per_paper,
+                args.max_retries,
+                args.retry_wait_minutes * 60,
+                args.sleep,
+                fewshot_examples,
+                env_fewshot_examples,
+                division_fewshot_examples,
+            )
+            aggregate = aggregate_predictions(predictions)
+            return format_result(row, predictions, aggregate)
+        except Exception as exc:
+            print(f"  경고: 처리 실패 id={row['id']} - {exc}", file=sys.stderr)
+            return failed_result(row, exc)
 
+    def _run_and_write(row: dict) -> None:
+        nonlocal done_count
+        result = _classify_one(row)
+        with write_lock:
             counts[result["status"]] = counts.get(result["status"], 0) + 1
             writer.writerow(result)
             out_f.flush()
+            done_count += 1
+            print(f"[{done_count}/{len(todo)}] id={row['id']} - {row['title'][:40]}... {result['status']}", file=sys.stderr)
 
-            if i < len(todo):
-                time.sleep(args.sleep)
+    try:
+        if args.concurrency > 1:
+            # 논문 단위로 동시에 처리한다. CSV에는 완료되는 순서대로 기록되므로 엑셀 순서와 다를 수
+            # 있지만, 이어하기는 논문ID 기준이라 문제없다
+            with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as executor:
+                futures = [executor.submit(_run_and_write, row) for row in todo]
+                for future in concurrent.futures.as_completed(futures):
+                    future.result()  # 스레드 안에서 난 예외를 여기서 다시 올려서 눈에 띄게 한다
+        else:
+            for i, row in enumerate(todo, 1):
+                _run_and_write(row)
+                if i < len(todo):
+                    time.sleep(args.sleep)
     finally:
         out_f.close()
 

@@ -8,7 +8,11 @@ KCI 사회과학.xlsx의 중분류(분야) 정보와 합쳐서 6개 그래프를
 4. 분야별 개별 코드(10개) 분포 - 히트맵 (분야 x 코드 10개, 3/5번을 코드 단위까지 세분화)
 5. 분야별 장(FIELD)/창(WINDOW) 비율 - 가로 100% 누적 막대그래프 (창 비율 높은 순 정렬)
 6. 사회학 분야만 - 시기별(5년 구간) 문헌 수 추이
+5b. 분야별 장(FIELD)/창(WINDOW) 분포 - 양방향(나비형) 가로 막대그래프 (실제 편수)
 9. 분야 구분 없이 코드(11개)별 문헌 수 - 가로 막대그래프
+7c. 화이트리스트에서 빠진 분야만 - 분야별 ERR 비율 (7번과 같은 형식)
+10. 분야 x 분야 거리 히트맵 - 11개 코드 비율 벡터 사이 Jensen-Shannon 거리 (사회학과 가까운 순)
+11. 분야 거리 지도 - 10번 거리를 MDS로 평면에 옮긴 그림 (사회학 강조)
 
 1·2·6번은 status=ERR(커뮤니티 역할/환경 어디에도 해당 안 됨)인 논문을 빼고 센다. 3·4·5번은
 원래부터 status=OK(코드가 실제로 부여된 논문)만 대상으로 한다.
@@ -33,6 +37,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from matplotlib.colors import LinearSegmentedColormap, PowerNorm
 
@@ -58,10 +63,25 @@ PALETTE = [
     "#9ecae1", "#c6dbef", "#c00000",  # 마지막(기타)만 대비되는 색
 ]
 
-# 히트맵용 - 'Blues' 앞쪽(거의 흰색) 25%를 잘라내고, 나머지를 다시 0~1로 늘려써서 저값도
-# 흐릿하지 않고 진하게 보이게 만든 컬러맵
+# 막대그래프 공통 색 - 단일 막대(1·6·7·8·9번)와 2색 막대(3·5·5b번)의 남색을 전부 이 색으로 통일한다.
+# ACCENT_COLOR는 2색 막대에서 남색과 짝을 이루는 대비색
+BAR_COLOR = PALETTE[0]  # "#08306b"
+ACCENT_COLOR = "#ed7d31"
+
+# 히트맵용 - 0에서 아주 연한 하늘색으로 시작해 'Blues' 진한 쪽(앞쪽 25%를 잘라낸 부분)으로 이어지는
+# 컬러맵. 값이 0인 칸은 따로 흰색으로 비우므로(_draw_heatmap), 시작색을 흰색이 아닌 하늘색으로 둬서
+# 작은 값(2~3%)도 흰 칸(0)과 구분되게 한다
+# 하늘색 한 색을 Blues 192단계 앞에 그냥 붙이면 전체의 1/193만 차지해서 컬러바 0 근처가 하늘색으로
+# 안 보인다 - 그래서 위치를 직접 지정해 0~10% 구간을 하늘색 -> Blues 25% 지점으로 이어지게 한다
+_HEATMAP_PALE_END = 0.1
+_HEATMAP_BLUES = plt.get_cmap("Blues")([x / 255 for x in range(64, 256)])
 HEATMAP_CMAP = LinearSegmentedColormap.from_list(
-    "deep_blues", plt.get_cmap("Blues")([x / 255 for x in range(64, 256)])
+    "deep_blues",
+    [(0.0, "#e4f1fb")]
+    + [
+        (_HEATMAP_PALE_END + (1 - _HEATMAP_PALE_END) * i / (len(_HEATMAP_BLUES) - 1), color)
+        for i, color in enumerate(_HEATMAP_BLUES)
+    ],
 )
 
 ROLE_FIELD_CODES = {"ROLE_FIELD_PUBLICSPHERE", "ROLE_FIELD_SOCIALCAPITAL"}
@@ -117,15 +137,17 @@ def _colors_for(ordered_cols: list[str]) -> list[str]:
     return colors
 
 
-def load_merged() -> pd.DataFrame:
-    """분류 결과 + 원본 엑셀의 중분류(분야)를 논문ID 기준으로 합친다."""
+def load_merged(excluded: bool = False) -> pd.DataFrame:
+    """분류 결과 + 원본 엑셀의 중분류(분야)를 논문ID 기준으로 합친다. 기본은 ALLOWED_FIELDS만
+    남기고, excluded=True면 반대로 화이트리스트에서 빠진 분야만 남긴다(7c번 그래프용)."""
     results = pd.read_csv(RESULTS_CSV, encoding="utf-8-sig", dtype={"id": str})
     meta = pd.read_excel(XLSX_PATH, sheet_name="Sheet1", dtype={"논문ID": str})
     meta = meta[["논문ID", "중분류"]].rename(columns={"논문ID": "id", "중분류": "field"})
 
     df = results.merge(meta, on="id", how="left")
     df["field"] = df["field"].fillna("미분류")
-    df = df[df["field"].isin(ALLOWED_FIELDS)].copy()
+    in_whitelist = df["field"].isin(ALLOWED_FIELDS)
+    df = df[~in_whitelist if excluded else in_whitelist].copy()
 
     df["year"] = pd.to_numeric(df["published_year"], errors="coerce")
     df = df.dropna(subset=["year"]).copy()
@@ -163,7 +185,7 @@ def chart1_overall_decade(df: pd.DataFrame) -> None:
     counts = non_err["decade"].value_counts().sort_index()
 
     fig, ax = plt.subplots(figsize=(9, 5))
-    bars = ax.bar(counts.index, counts.values, color=PALETTE[1], width=0.6)
+    bars = ax.bar(counts.index, counts.values, color=BAR_COLOR, width=0.6)
     ax.bar_label(bars, padding=3, fontsize=10)
 
     ax.set_xlabel("발행 시기")
@@ -182,7 +204,7 @@ def chart_single_field_decade(df: pd.DataFrame, field_name: str, out_name: str) 
     counts = scoped["decade"].value_counts().sort_index()
 
     fig, ax = plt.subplots(figsize=(9, 5))
-    bars = ax.bar(counts.index, counts.values, color=PALETTE[1], width=0.6)
+    bars = ax.bar(counts.index, counts.values, color=BAR_COLOR, width=0.6)
     ax.bar_label(bars, padding=3, fontsize=10)
 
     ax.set_xlabel("발행 시기")
@@ -194,9 +216,10 @@ def chart_single_field_decade(df: pd.DataFrame, field_name: str, out_name: str) 
     plt.close(fig)
 
 
-def chart7_field_err_rate_bar(df: pd.DataFrame) -> None:
+def chart7_field_err_rate_bar(df: pd.DataFrame, out_name: str = "7_분야별_ERR_비율.png") -> None:
     """7. 분야별 ERR 비율 - 가로 막대그래프. 분야마다 "커뮤니티와 무관하다"고 걸러진(ERR)
-    논문이 전체 중 몇 %인지 보여준다 - ERR 비율 높은 분야가 위로 오게 정렬."""
+    논문이 전체 중 몇 %인지 보여준다 - ERR 비율 높은 분야가 위로 오게 정렬. 화이트리스트 밖
+    분야(7c번)도 같은 함수로 그린다 - df만 load_merged(excluded=True)로 바꿔서 넘긴다."""
     top_fields = _top_fields(df)
     bucket = _field_bucket_col(df, top_fields)
     total = bucket.value_counts()
@@ -205,7 +228,7 @@ def chart7_field_err_rate_bar(df: pd.DataFrame) -> None:
     rate = (err_total.reindex(total.index).fillna(0) / total * 100).sort_values(ascending=True)
 
     fig, ax = plt.subplots(figsize=(9, max(4, 0.6 * len(rate) + 1.5)))
-    bars = ax.barh(rate.index, rate.values, color=PALETTE[1])
+    bars = ax.barh(rate.index, rate.values, color=BAR_COLOR)
     for i, field in enumerate(rate.index):
         ax.text(rate[field] + 1.5, i, f"{rate[field]:.0f}%", va="center", fontsize=9)
 
@@ -215,7 +238,7 @@ def chart7_field_err_rate_bar(df: pd.DataFrame) -> None:
     ax.set_xlabel("ERR 비율(%)")
     ax.spines[["top", "right"]].set_visible(False)
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "7_분야별_ERR_비율.png", dpi=150)
+    fig.savefig(OUT_DIR / out_name, dpi=150)
     plt.close(fig)
 
 
@@ -231,7 +254,7 @@ def chart8_window_decade(df: pd.DataFrame) -> None:
     counts = window_papers["decade"].value_counts().sort_index()
 
     fig, ax = plt.subplots(figsize=(9, 5))
-    bars = ax.bar(counts.index, counts.values, color=PALETTE[1], width=0.6)
+    bars = ax.bar(counts.index, counts.values, color=BAR_COLOR, width=0.6)
     ax.bar_label(bars, padding=3, fontsize=10)
 
     ax.set_xlabel("발행 시기")
@@ -254,11 +277,12 @@ def chart9_all_codes_count_bar(df: pd.DataFrame) -> None:
     )
     counts = all_codes.explode().dropna().value_counts().reindex(ALL_CODES, fill_value=0)
 
-    # barh는 아래부터 그리므로 뒤집어서 ALL_CODES 순서(ROLE_FIELD -> ROLE_WINDOW -> ENV)가 위에서부터 오게 함
-    counts = counts.iloc[::-1]
+    # 많이 등장한 코드가 맨 위에 오게 정렬 - barh는 아래부터 그리므로 오름차순으로 정렬해야 함.
+    # 동률이면 ALL_CODES 순서를 유지하도록 stable 정렬을 쓴다(뒤집어서 넣고 오름차순 -> 위에서 보면 원래 순서)
+    counts = counts.iloc[::-1].sort_values(ascending=True, kind="stable")
 
     fig, ax = plt.subplots(figsize=(9, max(4, 0.5 * len(counts) + 1.5)))
-    bars = ax.barh(counts.index, counts.values, color=PALETTE[1], height=0.6)
+    bars = ax.barh(counts.index, counts.values, color=BAR_COLOR, height=0.6)
     ax.bar_label(bars, padding=3, fontsize=9)
 
     ax.set_xlabel("논문 수")
@@ -342,64 +366,164 @@ def _field_fieldwindow_table(df: pd.DataFrame) -> pd.DataFrame:
     return table[["장(FIELD)", "창(WINDOW)"]]
 
 
-def _draw_ratio_barh(table: pd.DataFrame, colors: tuple[str, str], sort_col: str, out_path: Path) -> None:
-    """분야 x [카테고리 A, 카테고리 B] 원자료(등장 횟수) 표를 가로 100% 누적 막대그래프로
-    그린다 - sort_col 비율이 높은 분야가 위로 오게 정렬한다(barh는 아래부터 그리므로 오름차순
-    정렬해야 가장 큰 값이 맨 위에 온다). 히트맵(_draw_heatmap)과 동일하게 y축 분야 이름에
-    "분야명(n=N)" 형태로 전체 표본 수를 붙인다."""
+# x축에 분야명을 가로로 놓으면 긴 이름끼리 겹쳐서, 6글자짜리는 두 줄로 나눠 적는다
+_FIELD_LABEL_WRAP = {"사회과학일반": "사회과학\n일반", "기타사회과학": "기타\n사회과학"}
+
+
+def _draw_ratio_bar_ax(ax, table: pd.DataFrame, colors: tuple[str, str], order: list[str]) -> None:
+    """분야 x [카테고리 A, 카테고리 B] 원자료(등장 횟수) 표를 주어진 ax에 세로 100% 누적
+    막대그래프로 그린다. A가 아래, B가 위에 쌓이고, 분야는 order 순서대로 왼쪽부터 놓인다.
+    x축 분야 이름 아래에 "n=N"(그 분야의 두 카테고리 합)을 붙인다. order에 있지만 table에
+    없는 분야는 막대 없이 "해당 없음"으로 자리만 남긴다 - 합본 그림에서 위아래 패널의 분야
+    위치를 맞추기 위함."""
     col_a, col_b = table.columns
     color_a, color_b = colors
 
-    pct = _row_normalize_pct(table)
-    pct = pct.sort_values(sort_col, ascending=True)
-    counts = table.loc[pct.index]
+    counts = table.reindex(order).fillna(0).astype(int)
+    pct = _row_normalize_pct(counts)
+    x = range(len(order))
 
-    fig, ax = plt.subplots(figsize=(9, max(4, 0.6 * len(pct) + 1.5)))
-    ax.barh(pct.index, pct[col_a], color=color_a, label=col_a)
-    ax.barh(pct.index, pct[col_b], left=pct[col_a], color=color_b, label=col_b)
+    ax.bar(x, pct[col_a], color=color_a, label=col_a, width=0.7)
+    ax.bar(x, pct[col_b], bottom=pct[col_a], color=color_b, label=col_b, width=0.7)
+
+    for i, field in enumerate(order):
+        a_pct, b_pct = pct.loc[field, col_a], pct.loc[field, col_b]
+        if a_pct + b_pct == 0:
+            ax.text(i, 50, "해당\n없음", ha="center", va="center", color="#999999", fontsize=8)
+            continue
+        if a_pct >= 8:
+            ax.text(i, a_pct / 2, f"{a_pct:.0f}%", ha="center", va="center", color="white", fontsize=8)
+        if b_pct >= 8:
+            ax.text(i, a_pct + b_pct / 2, f"{b_pct:.0f}%", ha="center", va="center", color="white", fontsize=8)
 
     row_totals = counts[col_a] + counts[col_b]
-    ax.set_yticks(range(len(pct.index)))
-    ax.set_yticklabels([f"{field}(n={row_totals[field]})" for field in pct.index])
-
-    for i, field in enumerate(pct.index):
-        a_pct, b_pct = pct.loc[field, col_a], pct.loc[field, col_b]
-        if a_pct > 6:
-            ax.text(a_pct / 2, i, f"{a_pct:.0f}%", ha="center", va="center", color="white", fontsize=9)
-        if b_pct > 6:
-            ax.text(a_pct + b_pct / 2, i, f"{b_pct:.0f}%", ha="center", va="center", color="white", fontsize=9)
-
-    ax.set_xlim(0, 100)
-    ax.set_xlabel("비율(%)")
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.12), ncol=2, frameon=False)
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(
+        [f"{_FIELD_LABEL_WRAP.get(field, field)}\n(n={row_totals[field]})" for field in order], fontsize=8.5
+    )
+    ax.set_ylim(0, 100)
+    ax.set_yticks([0, 25, 50, 75, 100])
+    ax.set_ylabel("비율(%)")
     ax.spines[["top", "right"]].set_visible(False)
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=2, frameon=False, fontsize=9)
+
+
+def _draw_ratio_bar(table: pd.DataFrame, colors: tuple[str, str], sort_col: str, out_path: Path) -> None:
+    """단독 그래프용 - sort_col 비율이 높은 분야가 왼쪽에 오게 정렬해서 세로 100% 누적 막대로 그린다."""
+    order = _row_normalize_pct(table).sort_values(sort_col, ascending=False, kind="stable").index.tolist()
+    fig, ax = plt.subplots(figsize=(max(7, 0.75 * len(order) + 2), 4.8))
+    _draw_ratio_bar_ax(ax, table, colors, order)
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
 
 
 def chart3_field_role_env_ratio_bar(df: pd.DataFrame) -> None:
-    """3. 분야별 ROLE(역할)/ENV(환경) 비율 - 가로 100% 누적 막대그래프. ENV 비율이 높은
-    분야가 위로 오게 정렬(대부분 ROLE이 압도적이라, ENV가 조금이라도 있는 분야를 눈에 띄게)."""
-    table = _field_roleenv_table(df)
-    _draw_ratio_barh(
-        table,
-        colors=("#08306b", "#ed7d31"),
+    """3. 분야별 ROLE(역할)/ENV(환경) 비율 - 세로 100% 누적 막대그래프. ENV 비율이 높은
+    분야가 왼쪽에 오게 정렬(대부분 ROLE이 압도적이라, ENV가 조금이라도 있는 분야를 눈에 띄게)."""
+    _draw_ratio_bar(
+        _field_roleenv_table(df),
+        colors=(BAR_COLOR, ACCENT_COLOR),
         sort_col="ENV(환경)",
         out_path=OUT_DIR / "3_분야별_환경역할_비율_막대.png",
     )
 
 
 def chart5_field_fieldwindow_ratio_bar(df: pd.DataFrame) -> None:
-    """5. 분야별 장(FIELD)/창(WINDOW) 비율 - 가로 100% 누적 막대그래프. 창(WINDOW) 비율이
-    높은 분야가 위로 오게 정렬."""
-    table = _field_fieldwindow_table(df)
-    _draw_ratio_barh(
-        table,
-        colors=("#08306b", "#ed7d31"),
+    """5. 분야별 장(FIELD)/창(WINDOW) 비율 - 세로 100% 누적 막대그래프. 창(WINDOW) 비율이
+    높은 분야가 왼쪽에 오게 정렬."""
+    _draw_ratio_bar(
+        _field_fieldwindow_table(df),
+        colors=(BAR_COLOR, ACCENT_COLOR),
         sort_col="창(WINDOW)",
         out_path=OUT_DIR / "5_분야별_장창_비율_막대.png",
     )
+
+
+def chart3_5_combined(df: pd.DataFrame) -> None:
+    """3+5. 논문 게재용 합본 - (a) ROLE/ENV 비율, (b) 장/창 비율을 위아래 두 패널로 넣는다.
+    두 패널에서 같은 분야를 쉽게 찾아 비교할 수 있게 분야 순서를 통일한다((a) 패널의 n이 큰
+    분야부터 왼쪽). 단독 그래프(3·5번)처럼 비율로 정렬하면 패널마다 순서가 달라져서 비교가
+    어렵다. (b)에 없는 분야(ROLE 코드 없이 ENV만 있는 분야)는 (b)에서 막대 없이 "해당 없음"으로
+    자리만 남겨서, 위아래 패널의 같은 분야가 같은 세로줄에 오게 한다.
+
+    인쇄용이라 PNG는 300dpi로, 확대해도 깨지지 않게 PDF(벡터)도 같이 저장한다."""
+    roleenv = _field_roleenv_table(df)
+    fieldwindow = _field_fieldwindow_table(df)
+    # 그림에 적힌 (a) 패널의 n(코드 수)이 큰 분야부터 왼쪽에 놓는다 - 논문 편수로 정렬하면 적힌 n과
+    # 순서가 어긋나 보여서(예: 신문방송학 n=63이 경영학 n=62 뒤에 옴) 그림에 보이는 숫자 기준으로 맞춤
+    order = roleenv.sum(axis=1).sort_values(ascending=False, kind="stable").index.tolist()
+
+    fig, (ax_a, ax_b) = plt.subplots(2, 1, figsize=(8.5, 8.6))
+    _draw_ratio_bar_ax(ax_a, roleenv, (BAR_COLOR, ACCENT_COLOR), order)
+    _draw_ratio_bar_ax(ax_b, fieldwindow, (BAR_COLOR, ACCENT_COLOR), order)
+    for ax, label in ((ax_a, "(a) 역할(ROLE)과 환경(ENV)"), (ax_b, "(b) 장(FIELD)과 창(WINDOW)")):
+        ax.set_title(label, loc="left", fontsize=11, pad=22)
+
+    fig.tight_layout(h_pad=2.5)
+    out_stem = OUT_DIR / "3_5_합본_역할환경_장창_비율"
+    fig.savefig(out_stem.with_suffix(".png"), dpi=300)
+    fig.savefig(out_stem.with_suffix(".pdf"))
+    plt.close(fig)
+
+
+def chart5b_field_fieldwindow_diverging(df: pd.DataFrame) -> None:
+    """5b. 분야별 장(FIELD)/창(WINDOW) 분포 - 양방향(나비형) 가로 막대그래프. 가운데 축을
+    기준으로 장은 왼쪽(파랑), 창은 오른쪽(주황)으로 뻗는다. 5번(100% 비율)과 달리 실제 편수를
+    그대로 보여줘서 분야 간 규모 차이도 같이 보인다.
+
+    5번은 코드 등장 횟수 기준이지만 여기서는 논문 단위로 센다 - 장 코드가 하나라도 있으면 장 1편,
+    창 코드가 하나라도 있으면 창 1편. 장·창을 둘 다 가진 논문은 양쪽에 1편씩 들어가서, 왼쪽
+    "N편"(장 또는 창이 있는 논문 수)이 막대 두 개의 합보다 작을 수 있다. N편이 큰 분야가 위로 온다."""
+    ok = df[df["status"] == "OK"].copy()
+    code_sets = ok["role_codes"].fillna("").apply(lambda s: {c.strip() for c in s.split(",") if c.strip()})
+    ok["has_field"] = code_sets.apply(lambda codes: bool(codes & ROLE_FIELD_CODES))
+    ok["has_window"] = code_sets.apply(lambda codes: bool(codes & ROLE_WINDOW_CODES))
+    ok = ok[ok["has_field"] | ok["has_window"]]
+
+    table = ok.groupby("field").agg(
+        n=("id", "size"), field_n=("has_field", "sum"), window_n=("has_window", "sum")
+    )
+    # barh는 아래부터 그리므로 오름차순 정렬해야 N편이 큰 분야가 맨 위에 온다
+    table = table.sort_values("n", ascending=True, kind="stable")
+
+    field_color, window_color = BAR_COLOR, ACCENT_COLOR
+    y = range(len(table))
+    xmax = max(table["field_n"].max(), table["window_n"].max()) * 1.08
+
+    fig, ax = plt.subplots(figsize=(11, max(4, 0.55 * len(table) + 1.5)))
+    ax.barh(y, -table["field_n"], color=field_color, height=0.55)
+    ax.barh(y, table["window_n"], color=window_color, height=0.55)
+    ax.axvline(0, color="#d0d0d0", linewidth=1, zorder=0)
+
+    # 막대 안쪽 끝에 흰 글씨로 편수 표시 - 막대가 너무 짧으면(축 폭의 6% 미만) 바깥쪽에 검은 글씨로
+    min_inside = xmax * 0.06
+    for i, (f_n, w_n) in enumerate(zip(table["field_n"], table["window_n"])):
+        if f_n >= min_inside:
+            ax.text(-f_n + xmax * 0.01, i, str(f_n), ha="left", va="center", color="white", fontsize=10, fontweight="bold")
+        elif f_n > 0:
+            ax.text(-f_n - xmax * 0.01, i, str(f_n), ha="right", va="center", color="black", fontsize=10, fontweight="bold")
+        if w_n >= min_inside:
+            ax.text(w_n - xmax * 0.01, i, str(w_n), ha="right", va="center", color="white", fontsize=10, fontweight="bold")
+        elif w_n > 0:
+            ax.text(w_n + xmax * 0.01, i, str(w_n), ha="left", va="center", color="black", fontsize=10, fontweight="bold")
+
+    # y축 라벨 대신 왼쪽 여백에 "분야명   N편" 두 칸으로 직접 적는다(스크린샷 형태)
+    ax.set_yticks([])
+    for i, (field, n) in enumerate(zip(table.index, table["n"])):
+        ax.text(-0.22, i, field, transform=ax.get_yaxis_transform(), ha="left", va="center", fontsize=11, fontweight="bold")
+        ax.text(-0.02, i, f"{n}편", transform=ax.get_yaxis_transform(), ha="right", va="center", fontsize=10, color="#888888")
+
+    ax.text(-xmax * 0.02, len(table) - 0.35, "◀ 장 FIELD", ha="right", va="bottom", color=field_color, fontsize=10)
+    ax.text(xmax * 0.02, len(table) - 0.35, "창 WINDOW ▶", ha="left", va="bottom", color=window_color, fontsize=10)
+
+    ax.set_xlim(-xmax, xmax)
+    ax.set_ylim(-0.6, len(table) - 0.1)
+    ax.set_xticks([])
+    ax.spines[["top", "right", "left", "bottom"]].set_visible(False)
+    fig.subplots_adjust(left=0.2, right=0.98, top=0.95, bottom=0.03)
+    fig.savefig(OUT_DIR / "5b_분야별_장창_분포_양방향.png", dpi=150)
+    plt.close(fig)
 
 
 def chart4_field_all_codes_heatmap(df: pd.DataFrame) -> None:
@@ -431,11 +555,16 @@ def chart4_field_all_codes_heatmap(df: pd.DataFrame) -> None:
             table[c] = 0
     table = table[[c for c in code_order if c in table.columns]]
 
+    # y축 n은 코드 등장 횟수 합이 아니라 논문 편수로 표시 - 코드를 2개 가진 논문도 1편으로 센다
+    has_code = (ok["role_codes"].fillna("").str.strip() != "") | (ok["env_codes"].fillna("").str.strip() != "")
+    paper_counts = ok.loc[has_code, "field_bucket"].value_counts()
+
     _draw_heatmap(
         table,
         title="분야별 코드(10개) 등장 횟수",
         out_path=OUT_DIR / "4_분야별_전체코드_히트맵.png",
         rotate_xlabels=True,
+        row_n=paper_counts,
     )
 
 
@@ -447,12 +576,19 @@ def _row_normalize_pct(table: pd.DataFrame) -> pd.DataFrame:
     return table.div(row_sums.where(row_sums != 0, 1), axis=0) * 100
 
 
-def _draw_heatmap(table: pd.DataFrame, title: str, out_path: Path, rotate_xlabels: bool = False) -> None:
+def _draw_heatmap(
+    table: pd.DataFrame,
+    title: str,
+    out_path: Path,
+    rotate_xlabels: bool = False,
+    row_n: pd.Series | None = None,
+) -> None:
     """table은 원자료(등장 횟수)를 받되, 실제 색상은 행(분야) 기준으로 정규화한 비율로
     칠한다 - 분야별 문헌 수가 크게 달라서 원본 횟수로는 큰 분야만 도드라져 보이기 때문.
     칸 안에는 비율(%)만 적는다(원자료 개수를 칸마다 같이 적으면 오히려 헷갈려서 뺌).
     대신 행(분야)당 전체 원자료 합(n)을 y축 분야 이름에 "분야명(n=N)" 형태로 붙인다 - 표본이 1~2개뿐인
     분야가 100%/0%로 극단적으로 보이는 착시(예: 논문 1편짜리 분야)를 바로 알아채기 위함.
+    row_n을 주면 원자료 합 대신 그 값(예: 분야별 논문 편수)을 n으로 쓴다.
 
     색상은 PowerNorm(gamma<1)으로 매핑해서 낮은 값(0~20%대)도 색 차이가 잘 보이게 한다.
     범례 상한(vmax)은 최소 50이지만, 실제 데이터 최댓값이 그보다 크면(예: 3번처럼 열이 2개뿐이라
@@ -464,25 +600,223 @@ def _draw_heatmap(table: pd.DataFrame, title: str, out_path: Path, rotate_xlabel
 
     width = max(6, 1.1 * len(table.columns) + 2)
     fig, ax = plt.subplots(figsize=(width, max(4, 0.55 * len(table) + 1.5)))
-    im = ax.imshow(pct.values, cmap=HEATMAP_CMAP, aspect="auto", norm=norm)
+    # 0인 칸(코드가 한 번도 안 나온 칸)은 색을 칠하지 않고 흰색으로 둔다 - 값이 있는 칸만 눈에 띄게
+    cmap = HEATMAP_CMAP.copy()
+    cmap.set_bad("white")
+    masked = np.ma.masked_where(table.values == 0, pct.values)
+    im = ax.imshow(masked, cmap=cmap, aspect="auto", norm=norm)
 
     ax.set_xticks(range(len(table.columns)))
     ax.set_xticklabels(table.columns, fontsize=9)
     if rotate_xlabels:
         plt.setp(ax.get_xticklabels(), rotation=40, ha="right")
-    row_totals = table.sum(axis=1)
+    row_totals = row_n.reindex(table.index).fillna(0).astype(int) if row_n is not None else table.sum(axis=1)
     ax.set_yticks(range(len(table.index)))
     ax.set_yticklabels([f"{field}(n={row_totals[field]})" for field in table.index], fontsize=10)
 
     for i in range(table.shape[0]):
         for j in range(table.shape[1]):
             pct_val = pct.values[i, j]
+            if table.values[i, j] == 0:
+                ax.text(j, i, "0%", ha="center", va="center", color="#c8c8c8", fontsize=9)
+                continue
             color = "white" if norm(pct_val) > 0.6 else "black"
             ax.text(j, i, f"{pct_val:.0f}%", ha="center", va="center", color=color, fontsize=10)
 
-    fig.colorbar(im, ax=ax, shrink=0.7, label="분야 내 비율(%)")
+    cbar = fig.colorbar(im, ax=ax, shrink=0.7, label="분야 내 비율(%)")
+    cbar.outline.set_edgecolor("#999999")
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
+def chart3_5_compact(df: pd.DataFrame) -> None:
+    """3+5 압축본 - 논문 본문 폭(약 16cm)용. ROLE 코드는 전부 장(FIELD) 아니면 창(WINDOW)이라,
+    분야마다 막대 하나를 [장 / 창 / 환경(ENV)] 세 구간으로 나누면 합본의 (a)·(b) 두 패널 정보가
+    한 패널에 다 들어간다. 비율의 분모는 그 분야의 전체 코드 수(n)라서, 장·창 비율이 (b) 패널
+    (ROLE 코드만 분모)보다 ENV 몫만큼 조금 작게 나온다."""
+    roleenv = _field_roleenv_table(df)
+    fieldwindow = _field_fieldwindow_table(df)
+    table = pd.concat([fieldwindow, roleenv[["ENV(환경)"]]], axis=1).fillna(0).astype(int)
+    table = table.loc[table.sum(axis=1).sort_values(ascending=False, kind="stable").index]
+    pct = _row_normalize_pct(table)
+
+    colors = {"장(FIELD)": BAR_COLOR, "창(WINDOW)": ACCENT_COLOR, "ENV(환경)": "#9fb4cc"}
+    text_colors = {"장(FIELD)": "white", "창(WINDOW)": "white", "ENV(환경)": "#1f2d3d"}
+
+    with plt.rc_context({"font.size": 8}):
+        fig, ax = plt.subplots(figsize=(6.3, 3.0))  # 16cm x 7.6cm
+        x = range(len(table))
+        bottom = pd.Series(0.0, index=table.index)
+        for col in table.columns:
+            ax.bar(x, pct[col], bottom=bottom, color=colors[col], label=col, width=0.72, edgecolor="white", linewidth=0.6)
+            for i, field in enumerate(table.index):
+                if pct.loc[field, col] >= 10:
+                    ax.text(i, bottom[field] + pct.loc[field, col] / 2, f"{pct.loc[field, col]:.0f}",
+                            ha="center", va="center", color=text_colors[col], fontsize=7)
+            bottom = bottom + pct[col]
+
+        n = table.sum(axis=1)
+        ax.set_xticks(list(x))
+        ax.set_xticklabels([f"{_FIELD_LABEL_WRAP.get(f, f)}\n(n={n[f]})" for f in table.index], fontsize=7)
+        ax.set_ylim(0, 100)
+        ax.set_yticks([0, 50, 100])
+        ax.set_ylabel("비율(%)")
+        ax.spines[["top", "right"]].set_visible(False)
+        ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=3, frameon=False, fontsize=7.5,
+                  handlelength=1.2, columnspacing=1.5)
+        fig.tight_layout(pad=0.4)
+        out_stem = OUT_DIR / "3_5_압축_장창환경_비율"
+        fig.savefig(out_stem.with_suffix(".png"), dpi=600)
+        fig.savefig(out_stem.with_suffix(".pdf"))
+        plt.close(fig)
+
+
+REFERENCE_FIELD = "사회학"  # 분야 간 거리(10·11번)의 기준 분야 - 연구의 중심 분야
+MIN_CODES_FOR_DISTANCE = 5  # 코드가 이보다 적은 분야는 비율 벡터가 불안정해서 거리 분석에서 뺀다
+
+
+def _field_code_share(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
+    """분야마다 11개 코드의 비율 벡터(행 합=1)와 코드 수를 만든다. 원래 개수 대신 비율을 쓰는
+    이유: 개수 그대로 거리를 재면 코드 구성이 비슷해도 분야 크기(경영학 62 vs 심리과학 4)
+    차이 때문에 멀게 나온다. MIN_CODES_FOR_DISTANCE 미만인 분야는 뺀다."""
+    ok = df[df["status"] == "OK"]
+    rows = pd.concat(
+        [
+            _explode_codes(ok, "role_codes").rename(columns={"role_codes": "code"}),
+            _explode_codes(ok, "env_codes").rename(columns={"env_codes": "code"}),
+        ]
+    )
+    counts = pd.crosstab(rows["field"], rows["code"]).reindex(columns=ALL_CODES, fill_value=0)
+    n_codes = counts.sum(axis=1)
+    counts = counts[n_codes >= MIN_CODES_FOR_DISTANCE]
+    return counts.div(counts.sum(axis=1), axis=0), n_codes[counts.index]
+
+
+def _jensen_shannon(p: np.ndarray, q: np.ndarray) -> float:
+    """두 확률분포 사이 Jensen-Shannon 거리(log2 기준, 0=같음 ~ 1=완전히 다름). scipy가 없어 직접 구현."""
+    m = (p + q) / 2
+
+    def _kl(a: np.ndarray, b: np.ndarray) -> float:
+        mask = a > 0
+        return float(np.sum(a[mask] * np.log2(a[mask] / b[mask])))
+
+    return float(np.sqrt((_kl(p, m) + _kl(q, m)) / 2))
+
+
+def _field_distance_matrix(share: pd.DataFrame) -> pd.DataFrame:
+    fields = share.index.tolist()
+    values = share.values
+    dist = [[_jensen_shannon(values[i], values[j]) for j in range(len(fields))] for i in range(len(fields))]
+    return pd.DataFrame(dist, index=fields, columns=fields)
+
+
+def chart10_field_distance_heatmap(df: pd.DataFrame) -> None:
+    """10. 분야 x 분야 거리 히트맵 - 11개 코드 비율 벡터 사이 Jensen-Shannon 거리. 분야 순서는
+    기준 분야(사회학)와 가까운 순이라, 첫 행/열을 따라가면 사회학 대비 거리가 바로 읽힌다.
+    진할수록 멀다(코드 구성이 다르다)."""
+    share, n_codes = _field_code_share(df)
+    dist = _field_distance_matrix(share)
+    order = dist[REFERENCE_FIELD].sort_values(kind="stable").index.tolist()
+    dist = dist.loc[order, order]
+
+    fig, ax = plt.subplots(figsize=(8, 6.8))
+    im = ax.imshow(dist.values, cmap=HEATMAP_CMAP, vmin=0, vmax=1)
+    labels = [f"{_FIELD_LABEL_WRAP.get(f, f)}\n(n={n_codes[f]})" for f in order]
+    ax.set_xticks(range(len(order)))
+    ax.set_xticklabels(labels, fontsize=8.5)
+    ax.set_yticks(range(len(order)))
+    ax.set_yticklabels([f"{f}(n={n_codes[f]})" for f in order], fontsize=9)
+    for i in range(len(order)):
+        for j in range(len(order)):
+            val = dist.values[i, j]
+            if i == j:
+                continue
+            ax.text(j, i, f"{val:.2f}", ha="center", va="center", fontsize=8, color="white" if val > 0.55 else "black")
+    fig.colorbar(im, ax=ax, shrink=0.75, label="Jensen-Shannon 거리 (0=같음, 1=완전히 다름)")
+    fig.tight_layout()
+    fig.savefig(OUT_DIR / "10_분야간_거리_히트맵.png", dpi=300)
+    plt.close(fig)
+
+
+def _classical_mds(dist: np.ndarray, dims: int = 2) -> np.ndarray:
+    """거리 행렬을 평면 좌표로 옮기는 고전적 MDS(Torgerson). sklearn이 없어 numpy로 직접 계산한다."""
+    n = dist.shape[0]
+    centering = np.eye(n) - np.ones((n, n)) / n
+    # numpy 2.2 + macOS Accelerate에서 작은 행렬곱에 divide by zero/overflow 가짜 경고가 뜬다 -
+    # 결과는 정상(손 계산과 일치 확인)이라 이 계산에서만 경고를 끈다
+    with np.errstate(all="ignore"):
+        b = -0.5 * centering @ (dist**2) @ centering
+    eigvals, eigvecs = np.linalg.eigh(b)
+    top = np.argsort(eigvals)[::-1][:dims]
+    return eigvecs[:, top] * np.sqrt(np.maximum(eigvals[top], 0))
+
+
+def chart11_field_distance_map(df: pd.DataFrame) -> None:
+    """11. 분야 거리 지도 - 10번 거리 행렬을 MDS로 평면에 옮긴 그림. 점 사이 거리가 코드 구성의
+    차이를 나타내고, 점 크기는 코드 수(n)다. 기준 분야(사회학)는 주황으로 강조한다. MDS 좌표축
+    자체에는 의미가 없어서(회전해도 같은 그림) 눈금을 뺀다. 원래 거리를 평면에 얼마나 담았는지
+    (설명 비율)를 제목 아래에 적는다 - 이 비율이 낮으면 점 사이 거리를 곧이곧대로 읽으면 안 된다."""
+    share, n_codes = _field_code_share(df)
+    dist = _field_distance_matrix(share)
+    coords = _classical_mds(dist.values)
+
+    n = dist.shape[0]
+    centering = np.eye(n) - np.ones((n, n)) / n
+    with np.errstate(all="ignore"):  # _classical_mds와 같은 가짜 경고 억제
+        b = -0.5 * centering @ (dist.values**2) @ centering
+    eigvals = np.sort(np.linalg.eigvalsh(b))[::-1]
+    explained = eigvals[:2].sum() / eigvals[eigvals > 0].sum() * 100
+
+    fig, ax = plt.subplots(figsize=(7.5, 6.5))
+    sizes = {field: 40 + n_codes[field] * 12 for field in dist.index}
+    for (x, y), field in zip(coords, dist.index):
+        ax.scatter(
+            x, y, s=sizes[field], color=ACCENT_COLOR if field == REFERENCE_FIELD else BAR_COLOR,
+            alpha=0.85, edgecolor="white", linewidth=1.5, zorder=3,
+        )
+
+    # 라벨은 점 오른쪽에 둔다. 점끼리 가까우면 라벨이 겹치므로, 라벨 y 위치를 아래부터 훑으면서
+    # 앞 라벨과 최소 간격(min_gap)보다 가까우면 위로 밀어낸다 - 밀린 라벨은 가는 선으로 점과 잇는다
+    y_span = coords[:, 1].max() - coords[:, 1].min()
+    min_gap = y_span * 0.07
+    label_y = {}
+    placed: list[tuple[float, float]] = []  # (x, label_y) - x가 가까운 라벨끼리만 충돌로 본다
+    x_span = coords[:, 0].max() - coords[:, 0].min()
+    for idx in np.argsort(coords[:, 1]):
+        x, y = coords[idx]
+        field = dist.index[idx]
+        target = y
+        for px, py in placed:
+            if abs(px - x) < x_span * 0.35 and abs(py - target) < min_gap:
+                target = py + min_gap
+        placed.append((x, target))
+        label_y[field] = target
+
+    for (x, y), field in zip(coords, dist.index):
+        is_ref = field == REFERENCE_FIELD
+        radius_pt = np.sqrt(sizes[field] / np.pi)
+        ax.annotate(
+            f"{field}(n={n_codes[field]})", (x, y), xytext=(radius_pt + 6, 0), textcoords="offset points",
+            ha="left", va="center", fontsize=9, fontweight="bold" if is_ref else "normal",
+        )
+        if abs(label_y[field] - y) > 1e-9:
+            # 위로 밀어낸 라벨 - 원래 annotate 대신 옮긴 위치에 다시 적고 점과 선으로 연결
+            ax.texts[-1].remove()
+            ax.annotate(
+                f"{field}(n={n_codes[field]})", (x, y), xytext=(x + x_span * 0.06, label_y[field]),
+                textcoords="data", ha="left", va="center", fontsize=9,
+                fontweight="bold" if is_ref else "normal",
+                arrowprops={"arrowstyle": "-", "color": "#999999", "linewidth": 0.7},
+            )
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.spines[["top", "right", "left", "bottom"]].set_color("#cccccc")
+    ax.margins(x=0.08, y=0.12)
+    ax.set_xlim(ax.get_xlim()[0], ax.get_xlim()[1] + x_span * 0.35)  # 오른쪽 라벨이 잘리지 않게 여백 추가
+    ax.set_title(f"평면이 원래 거리를 설명하는 비율: {explained:.0f}%", fontsize=9, color="#666666", loc="left")
+    fig.tight_layout()
+    fig.savefig(OUT_DIR / "11_분야_거리지도_MDS.png", dpi=300)
     plt.close(fig)
 
 
@@ -498,12 +832,18 @@ def main() -> None:
     chart3_field_role_env_ratio_bar(df)
     chart4_field_all_codes_heatmap(df)
     chart5_field_fieldwindow_ratio_bar(df)
+    chart3_5_combined(df)
+    chart3_5_compact(df)
+    chart5b_field_fieldwindow_diverging(df)
     chart_single_field_decade(df, "사회학", "6_사회학_시기별_추이.png")
     chart7_field_err_rate_bar(df)
+    chart7_field_err_rate_bar(load_merged(excluded=True), "7c_화이트리스트_제외분야_ERR_비율.png")
     chart8_window_decade(df)
     chart9_all_codes_count_bar(df)
+    chart10_field_distance_heatmap(df)
+    chart11_field_distance_map(df)
 
-    print(f"완료 - {OUT_DIR} 아래 9개 PNG 생성됨")
+    print(f"완료 - {OUT_DIR} 아래 15개 PNG(+합본·압축본 PDF) 생성됨")
 
 
 if __name__ == "__main__":
