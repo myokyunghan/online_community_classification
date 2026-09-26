@@ -43,6 +43,8 @@ temperature=0으로도 모델 응답이 매번 완전히 동일하지는 않을 
     python compare_with_golden.py --runs-per-paper 5
 """
 
+from __future__ import annotations
+
 import argparse
 import csv
 import json

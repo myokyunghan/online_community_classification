@@ -109,13 +109,18 @@ ALL_CODES = [
 
 
 def _setup_korean_font() -> None:
-    """macOS 기준 한글 폰트를 잡는다 - 없으면 라벨이 네모(tofu)로 깨진다."""
-    for candidate in ("AppleGothic", "Apple SD Gothic Neo", "Nanum Gothic"):
-        try:
+    """설치된 한글 폰트를 찾아서 쓴다 - 없으면 라벨이 네모(tofu)로 깨진다. rcParams에 이름을
+    넣는 것만으로는 폰트가 실제로 있는지 확인되지 않아서, font_manager에 등록된 폰트 이름과
+    대조한다. 후보는 macOS -> Linux(나눔고딕) -> Windows(맑은 고딕) 순."""
+    from matplotlib import font_manager
+
+    installed = {f.name for f in font_manager.fontManager.ttflist}
+    for candidate in ("AppleGothic", "Apple SD Gothic Neo", "NanumGothic", "Malgun Gothic"):
+        if candidate in installed:
             plt.rcParams["font.family"] = candidate
             break
-        except Exception:
-            continue
+    else:
+        print("경고: 한글 폰트를 찾지 못해 그래프의 한글이 깨질 수 있습니다 (INSTALL.md 6장 참고)")
     plt.rcParams["axes.unicode_minus"] = False
 
 
