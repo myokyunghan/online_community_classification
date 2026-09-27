@@ -28,12 +28,13 @@ GENDER, ROLE_WINDOW_HATE") 콤마로 분리해서 코드 등장 횟수 기준으
 아님 - 한 논문이 여러 코드에 중복 반영될 수 있다는 뜻).
 
 사용법:
-    python3 visualize_results.py
-    (target_new/charts/ 아래에 6개 PNG 생성)
+    python3 visualize_results.py                       # 1회 분류 결과 -> charts/
+    python3 visualize_results.py --results classification_results_runs3.csv --out-dir charts_runs3
 """
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -146,6 +147,17 @@ def load_merged(excluded: bool = False) -> pd.DataFrame:
     """분류 결과 + 원본 엑셀의 중분류(분야)를 논문ID 기준으로 합친다. 기본은 ALLOWED_FIELDS만
     남기고, excluded=True면 반대로 화이트리스트에서 빠진 분야만 남긴다(7c번 그래프용)."""
     results = pd.read_csv(RESULTS_CSV, encoding="utf-8-sig", dtype={"id": str})
+    # 3회 분류에서 판정이 전부 갈려 과반 라벨이 없는 논문(status=OK인데 코드가 빈칸)은 리뷰 전까지
+    # 모든 그래프에서 뺀다 - 그대로 두면 편수 그래프(1·2·6번)에는 들어가고 코드 그래프에서는 빠져서
+    # 그래프마다 분모가 달라진다. 리뷰대상 목록은 analyze_runs3.py가 따로 만든다
+    no_label = (
+        (results["status"] == "OK")
+        & results["role_codes"].fillna("").str.strip().eq("")
+        & results["env_codes"].fillna("").str.strip().eq("")
+    )
+    if no_label.any():
+        print(f"과반 라벨 없는 논문 {no_label.sum()}편은 그래프에서 제외 (리뷰 대상)")
+    results = results[~no_label]
     meta = pd.read_excel(XLSX_PATH, sheet_name="Sheet1", dtype={"논문ID": str})
     meta = meta[["논문ID", "중분류"]].rename(columns={"논문ID": "id", "중분류": "field"})
 
@@ -775,22 +787,40 @@ def chart11_field_distance_map(df: pd.DataFrame) -> None:
 
     fig, ax = plt.subplots(figsize=(7.5, 6.5))
     sizes = {field: 40 + n_codes[field] * 12 for field in dist.index}
+    x_span = coords[:, 0].max() - coords[:, 0].min()
+    y_span = coords[:, 1].max() - coords[:, 1].min()
     for (x, y), field in zip(coords, dist.index):
+        is_ref = field == REFERENCE_FIELD
+        # 기준 분야는 다른 큰 점에 가려지지 않게 맨 위(zorder)에, 테두리를 진하게 그린다
         ax.scatter(
-            x, y, s=sizes[field], color=ACCENT_COLOR if field == REFERENCE_FIELD else BAR_COLOR,
-            alpha=0.85, edgecolor="white", linewidth=1.5, zorder=3,
+            x, y, s=sizes[field], color=ACCENT_COLOR if is_ref else BAR_COLOR,
+            alpha=0.95 if is_ref else 0.8, edgecolor="#333333" if is_ref else "white",
+            linewidth=1.2 if is_ref else 1.5, zorder=5 if is_ref else 3,
         )
 
-    # 라벨은 점 오른쪽에 둔다. 점끼리 가까우면 라벨이 겹치므로, 라벨 y 위치를 아래부터 훑으면서
-    # 앞 라벨과 최소 간격(min_gap)보다 가까우면 위로 밀어낸다 - 밀린 라벨은 가는 선으로 점과 잇는다
-    y_span = coords[:, 1].max() - coords[:, 1].min()
+    # 라벨 위치 규칙:
+    # - 기준 분야(사회학)는 점 바로 위 - 기준점이라 다른 분야와 가까이 붙는 경우가 많아서
+    # - 오른쪽 가까이에 다른 점이 있으면 라벨을 왼쪽에 둔다(오른쪽 점과 겹치지 않게)
+    # - 나머지는 오른쪽. 오른쪽 라벨끼리 세로로 너무 붙으면 아래부터 훑으며 위로 밀어내고 선으로 잇는다
+    def _crowded_on_right(i: int) -> bool:
+        x, y = coords[i]
+        return any(
+            j != i and 0 < coords[j, 0] - x < x_span * 0.3 and abs(coords[j, 1] - y) < y_span * 0.08
+            for j in range(len(coords))
+        )
+
+    side = {}
+    for i, field in enumerate(dist.index):
+        side[field] = "top" if field == REFERENCE_FIELD else ("left" if _crowded_on_right(i) else "right")
+
     min_gap = y_span * 0.07
     label_y = {}
-    placed: list[tuple[float, float]] = []  # (x, label_y) - x가 가까운 라벨끼리만 충돌로 본다
-    x_span = coords[:, 0].max() - coords[:, 0].min()
+    placed: list[tuple[float, float]] = []
     for idx in np.argsort(coords[:, 1]):
-        x, y = coords[idx]
         field = dist.index[idx]
+        if side[field] != "right":
+            continue
+        x, y = coords[idx]
         target = y
         for px, py in placed:
             if abs(px - x) < x_span * 0.35 and abs(py - target) < min_gap:
@@ -800,25 +830,30 @@ def chart11_field_distance_map(df: pd.DataFrame) -> None:
 
     for (x, y), field in zip(coords, dist.index):
         is_ref = field == REFERENCE_FIELD
+        label = f"{field}(n={n_codes[field]})"
         radius_pt = np.sqrt(sizes[field] / np.pi)
-        ax.annotate(
-            f"{field}(n={n_codes[field]})", (x, y), xytext=(radius_pt + 6, 0), textcoords="offset points",
-            ha="left", va="center", fontsize=9, fontweight="bold" if is_ref else "normal",
-        )
-        if abs(label_y[field] - y) > 1e-9:
-            # 위로 밀어낸 라벨 - 원래 annotate 대신 옮긴 위치에 다시 적고 점과 선으로 연결
-            ax.texts[-1].remove()
-            ax.annotate(
-                f"{field}(n={n_codes[field]})", (x, y), xytext=(x + x_span * 0.06, label_y[field]),
-                textcoords="data", ha="left", va="center", fontsize=9,
-                fontweight="bold" if is_ref else "normal",
-                arrowprops={"arrowstyle": "-", "color": "#999999", "linewidth": 0.7},
-            )
+        style = {"fontsize": 9, "fontweight": "bold" if is_ref else "normal", "zorder": 6}
+        if side[field] == "top":
+            ax.annotate(label, (x, y), xytext=(0, radius_pt + 4), textcoords="offset points",
+                        ha="center", va="bottom", **style)
+        elif side[field] == "left":
+            ax.annotate(label, (x, y), xytext=(-(radius_pt + 6), 0), textcoords="offset points",
+                        ha="right", va="center", **style)
+        elif abs(label_y[field] - y) > 1e-9:
+            # 위로 밀어낸 라벨 - 옮긴 위치에 적고 점과 가는 선으로 잇는다
+            ax.annotate(label, (x, y), xytext=(x + x_span * 0.06, label_y[field]), textcoords="data",
+                        ha="left", va="center",
+                        arrowprops={"arrowstyle": "-", "color": "#999999", "linewidth": 0.7}, **style)
+        else:
+            ax.annotate(label, (x, y), xytext=(radius_pt + 6, 0), textcoords="offset points",
+                        ha="left", va="center", **style)
     ax.set_xticks([])
     ax.set_yticks([])
     ax.spines[["top", "right", "left", "bottom"]].set_color("#cccccc")
     ax.margins(x=0.08, y=0.12)
-    ax.set_xlim(ax.get_xlim()[0], ax.get_xlim()[1] + x_span * 0.35)  # 오른쪽 라벨이 잘리지 않게 여백 추가
+    # 라벨이 테두리 밖으로 나가지 않게 여백 추가 - 오른쪽 라벨은 항상, 왼쪽 라벨은 있을 때만
+    left_pad = x_span * 0.35 if "left" in side.values() else 0
+    ax.set_xlim(ax.get_xlim()[0] - left_pad, ax.get_xlim()[1] + x_span * 0.35)
     ax.set_title(f"평면이 원래 거리를 설명하는 비율: {explained:.0f}%", fontsize=9, color="#666666", loc="left")
     fig.tight_layout()
     fig.savefig(OUT_DIR / "11_분야_거리지도_MDS.png", dpi=300)
@@ -826,6 +861,17 @@ def chart11_field_distance_map(df: pd.DataFrame) -> None:
 
 
 def main() -> None:
+    global RESULTS_CSV, OUT_DIR
+    parser = argparse.ArgumentParser(description="분류 결과 CSV로 그래프를 그린다")
+    parser.add_argument("--results", default=str(RESULTS_CSV), help="분류 결과 CSV (기본: 1회 분류 결과)")
+    parser.add_argument("--out-dir", default=str(OUT_DIR), help="그래프 저장 폴더 (기본: charts/)")
+    args = parser.parse_args()
+    # 차트 함수들이 모듈 전역 RESULTS_CSV/OUT_DIR을 읽으므로 여기서 바꿔 준다 - 3회 결과는
+    # --results classification_results_runs3.csv --out-dir charts_runs3 처럼 따로 그려서
+    # 1회 결과 그래프와 나란히 비교할 수 있게 한다
+    RESULTS_CSV, OUT_DIR = Path(args.results), Path(args.out_dir)
+    print(f"입력: {RESULTS_CSV}")
+
     _setup_korean_font()
     OUT_DIR.mkdir(exist_ok=True)
 
