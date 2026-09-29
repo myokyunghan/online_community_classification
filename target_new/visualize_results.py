@@ -6,6 +6,7 @@ KCI 사회과학.xlsx의 중분류(분야) 정보와 합쳐서 6개 그래프를
 2. 분야별 추이 - 5년 구간 x 분야 누적 막대그래프 (ALLOWED_FIELDS 전부 개별 색, ERR 제외)
 3. 분야별 ROLE(역할)/ENV(환경) 비율 - 가로 100% 누적 막대그래프 (ENV 비율 높은 순 정렬)
 4. 분야별 개별 코드(10개) 분포 - 히트맵 (분야 x 코드 10개, 3/5번을 코드 단위까지 세분화)
+4b. 분야별 코드 그룹(ROLE_FIELD/ROLE_WINDOW/ENV_COMMUNITY/ENV_ONLINE) 히트맵
 5. 분야별 장(FIELD)/창(WINDOW) 비율 - 가로 100% 누적 막대그래프 (창 비율 높은 순 정렬)
 6. 사회학 분야만 - 시기별(5년 구간) 문헌 수 추이
 5b. 분야별 장(FIELD)/창(WINDOW) 분포 - 양방향(나비형) 가로 막대그래프 (실제 편수)
@@ -543,9 +544,9 @@ def chart5b_field_fieldwindow_diverging(df: pd.DataFrame) -> None:
     plt.close(fig)
 
 
-def chart4_field_all_codes_heatmap(df: pd.DataFrame) -> None:
-    """4. 분야별 x 개별 코드(원래 11개 축 중 golden_new가 실제로 판정하는 10개) 등장 횟수
-    히트맵 - 3번(ROLE/ENV)과 5번(장/창)의 막대그래프를 코드 단위까지 더 잘게 쪼갠 버전."""
+def _field_code_table(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
+    """분야 x 개별 코드(11개) 등장 횟수 표와, 분야별 논문 편수(코드가 하나라도 있는 논문)를
+    만든다. 4번(11개 코드)과 4b번(2단계 그룹 4개) 히트맵이 같은 집계를 쓰도록 공통으로 뺐다."""
     top_fields = _top_fields(df)
     ok = df[df["status"] == "OK"].copy()
     ok["field_bucket"] = _field_bucket_col(ok, top_fields)
@@ -566,21 +567,44 @@ def chart4_field_all_codes_heatmap(df: pd.DataFrame) -> None:
     table = table.reindex(order).fillna(0).astype(int)
 
     # 열 순서: ROLE_FIELD_* -> ROLE_WINDOW_* -> ENV_* 순으로 고정 (원래 11개 코드 정의 순서와 맞춤)
-    code_order = ALL_CODES
-    for c in code_order:
-        if c not in table.columns:
-            table[c] = 0
-    table = table[[c for c in code_order if c in table.columns]]
+    table = table.reindex(columns=ALL_CODES, fill_value=0)
 
     # y축 n은 코드 등장 횟수 합이 아니라 논문 편수로 표시 - 코드를 2개 가진 논문도 1편으로 센다
     has_code = (ok["role_codes"].fillna("").str.strip() != "") | (ok["env_codes"].fillna("").str.strip() != "")
     paper_counts = ok.loc[has_code, "field_bucket"].value_counts()
+    return table, paper_counts
 
+
+def chart4_field_all_codes_heatmap(df: pd.DataFrame) -> None:
+    """4. 분야별 x 개별 코드(11개) 등장 횟수 히트맵 - 3번(ROLE/ENV)과 5번(장/창)의 막대그래프를
+    코드 단위까지 더 잘게 쪼갠 버전."""
+    table, paper_counts = _field_code_table(df)
     _draw_heatmap(
         table,
-        title="분야별 코드(10개) 등장 횟수",
+        title="분야별 코드(11개) 등장 횟수",
         out_path=OUT_DIR / "4_분야별_전체코드_히트맵.png",
         rotate_xlabels=True,
+        row_n=paper_counts,
+    )
+
+
+# 코드 이름 앞 두 단계로 묶은 그룹 - 4b번 히트맵 x축 순서
+CODE_GROUPS = ["ROLE_FIELD", "ROLE_WINDOW", "ENV_COMMUNITY", "ENV_ONLINE"]
+
+
+def chart4b_field_code_group_heatmap(df: pd.DataFrame) -> None:
+    """4b. 분야별 x 코드 그룹(2단계) 히트맵 - 11개 코드를 이름 앞 두 단계(ROLE_FIELD / ROLE_WINDOW /
+    ENV_COMMUNITY / ENV_ONLINE)로 묶어 합친다. 4번과 같은 집계를 열만 합친 것이라, 각 칸은 그 분야
+    코드 중 해당 그룹이 차지하는 비율이고 y축 n은 논문 편수다."""
+    table, paper_counts = _field_code_table(df)
+    grouped = table.T.groupby(lambda code: "_".join(code.split("_")[:2])).sum().T
+    grouped = grouped.reindex(columns=CODE_GROUPS, fill_value=0)
+    # 열이 4개뿐이라 칸이 좁아서 한 줄로 쓰면 이웃 라벨과 겹친다 - "ROLE\nFIELD"처럼 두 줄로 나눈다
+    grouped.columns = [group.replace("_", "\n") for group in grouped.columns]
+    _draw_heatmap(
+        grouped,
+        title="분야별 코드 그룹(4개) 등장 횟수",
+        out_path=OUT_DIR / "4b_분야별_코드그룹_히트맵.png",
         row_n=paper_counts,
     )
 
@@ -882,6 +906,7 @@ def main() -> None:
     chart2_field_decade_stacked(df)
     chart3_field_role_env_ratio_bar(df)
     chart4_field_all_codes_heatmap(df)
+    chart4b_field_code_group_heatmap(df)
     chart5_field_fieldwindow_ratio_bar(df)
     chart3_5_combined(df)
     chart3_5_compact(df)
@@ -894,7 +919,7 @@ def main() -> None:
     chart10_field_distance_heatmap(df)
     chart11_field_distance_map(df)
 
-    print(f"완료 - {OUT_DIR} 아래 15개 PNG(+합본·압축본 PDF) 생성됨")
+    print(f"완료 - {OUT_DIR} 아래 16개 PNG(+합본·압축본 PDF) 생성됨")
 
 
 if __name__ == "__main__":
