@@ -148,16 +148,18 @@ def load_merged(excluded: bool = False) -> pd.DataFrame:
     """분류 결과 + 원본 엑셀의 중분류(분야)를 논문ID 기준으로 합친다. 기본은 ALLOWED_FIELDS만
     남기고, excluded=True면 반대로 화이트리스트에서 빠진 분야만 남긴다(7c번 그래프용)."""
     results = pd.read_csv(RESULTS_CSV, encoding="utf-8-sig", dtype={"id": str})
-    # 3회 분류에서 판정이 전부 갈려 과반 라벨이 없는 논문(status=OK인데 코드가 빈칸)은 리뷰 전까지
-    # 모든 그래프에서 뺀다 - 그대로 두면 편수 그래프(1·2·6번)에는 들어가고 코드 그래프에서는 빠져서
-    # 그래프마다 분모가 달라진다. 리뷰대상 목록은 analyze_runs3.py가 따로 만든다
+    # 과반 라벨이 없는 논문은 분야·시기별 코드 분석에서만 제외한다. 전체 요약(0번)은 원본 CSV를
+    # 별도로 읽어 이 문헌들을 미분류로 포함한다. 리뷰대상 목록은 analyze_runs3.py가 따로 만든다.
     no_label = (
         (results["status"] == "OK")
         & results["role_codes"].fillna("").str.strip().eq("")
         & results["env_codes"].fillna("").str.strip().eq("")
     )
     if no_label.any():
-        print(f"과반 라벨 없는 논문 {no_label.sum()}편은 그래프에서 제외 (리뷰 대상)")
+        print(
+            f"과반 라벨 없는 논문 {no_label.sum()}편: 0번 요약에는 미분류로 포함, "
+            "분야·시기별 그래프에서는 제외 (리뷰 대상)"
+        )
     results = results[~no_label]
     meta = pd.read_excel(XLSX_PATH, sheet_name="Sheet1", dtype={"논문ID": str})
     meta = meta[["논문ID", "중분류"]].rename(columns={"논문ID": "id", "중분류": "field"})
@@ -212,6 +214,81 @@ def chart1_overall_decade(df: pd.DataFrame) -> None:
     ax.spines[["top", "right"]].set_visible(False)
     fig.tight_layout()
     fig.savefig(OUT_DIR / "1_전체_시기별_추이.png", dpi=150)
+    plt.close(fig)
+
+
+def chart0_classification_summary(df: pd.DataFrame) -> None:
+    """원본 분류 CSV 전체를 분모로 ERR/비에러와 비에러 내 코드 비율을 각각 그린다."""
+    results = pd.read_csv(RESULTS_CSV, encoding="utf-8-sig", dtype={"id": str})
+    results["status"] = results["status"].fillna("").astype(str).str.strip()
+    csv_total = len(results)
+    if csv_total == 0:
+        print("요약 그래프 생략: 추출된 문헌이 없습니다")
+        return
+    total = csv_total
+
+    is_error = results["status"].eq("ERR")
+    non_error = ~is_error
+    has_role = results["role_codes"].fillna("").astype(str).str.strip().ne("")
+    has_env = results["env_codes"].fillna("").astype(str).str.strip().ne("")
+    groups = {
+        "역할만": non_error & has_role & ~has_env,
+        "환경만": non_error & ~has_role & has_env,
+        "역할+환경": non_error & has_role & has_env,
+        "미분류": non_error & ~has_role & ~has_env,
+    }
+    counts = {label: int(mask.sum()) for label, mask in groups.items()}
+    err_count = int(is_error.sum())
+    non_error_count = int(non_error.sum())
+    role_count = int((non_error & has_role).sum())
+    env_count = int((non_error & has_env).sum())
+    unclassified_count = counts["미분류"]
+
+    overall_labels = ["온라인 커뮤니티와 관련 없음", "온라인 커뮤니티 관련"]
+    overall_counts = [err_count, non_error_count]
+    overall_colors = [BAR_COLOR, ACCENT_COLOR]
+    fig, ax = plt.subplots(figsize=(7, 2.4))
+    bars = ax.barh(overall_labels, overall_counts, color=overall_colors, height=0.76)
+    for bar, count in zip(bars, overall_counts):
+        ax.text(
+            bar.get_width() + total * 0.012,
+            bar.get_y() + bar.get_height() / 2,
+            f"{count:,}  ({count / total:.1%})",
+            va="center",
+            fontsize=11,
+        )
+    ax.set_xlim(0, total * 1.16)
+    ax.set_xticks([])
+    ax.tick_params(axis="y", length=0, labelsize=11)
+    ax.spines[:].set_visible(False)
+    ax.spines["left"].set_visible(True)
+    ax.spines["left"].set_color("#b8c4d3")
+    fig.subplots_adjust(left=0.18, right=0.97, top=0.98, bottom=0.02)
+    fig.savefig(OUT_DIR / "0a_전체_ERR_비에러.png", dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+    detail_labels = ["미분류", "환경적 특성 조명", "역할적 특성 조명"]
+    detail_counts = [unclassified_count, env_count, role_count]
+    detail_colors = ["#b8c4d3", ACCENT_COLOR, BAR_COLOR]
+    fig, ax = plt.subplots(figsize=(7, 2.55))
+    bars = ax.barh(detail_labels, detail_counts, color=detail_colors, height=0.76)
+    for bar, count in zip(bars, detail_counts):
+        fraction = count / non_error_count if non_error_count else 0
+        ax.text(
+            bar.get_width() + non_error_count * 0.012,
+            bar.get_y() + bar.get_height() / 2,
+            f"{count:,}  ({fraction:.1%})",
+            va="center",
+            fontsize=11,
+        )
+    ax.set_xlim(0, max(detail_counts, default=0) * 1.22 or 1)
+    ax.set_xticks([])
+    ax.tick_params(axis="y", length=0, labelsize=11)
+    ax.spines[:].set_visible(False)
+    ax.spines["left"].set_visible(True)
+    ax.spines["left"].set_color("#b8c4d3")
+    fig.subplots_adjust(left=0.22, right=0.97, top=0.98, bottom=0.02)
+    fig.savefig(OUT_DIR / "0b_비에러_역할환경_미분류.png", dpi=180, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -438,9 +515,11 @@ def _draw_ratio_bar(table: pd.DataFrame, colors: tuple[str, str], sort_col: str,
 
 def chart3_field_role_env_ratio_bar(df: pd.DataFrame) -> None:
     """3. 분야별 ROLE(역할)/ENV(환경) 비율 - 세로 100% 누적 막대그래프. ENV 비율이 높은
-    분야가 왼쪽에 오게 정렬(대부분 ROLE이 압도적이라, ENV가 조금이라도 있는 분야를 눈에 띄게)."""
+    분야가 왼쪽에 오게 정렬한다. 표시 n(ROLE/ENV 코드 등장 횟수 합)이 10 미만인 분야는 뺀다."""
+    table = _field_roleenv_table(df)
+    table = table.loc[table.sum(axis=1) >= 10]
     _draw_ratio_bar(
-        _field_roleenv_table(df),
+        table,
         colors=(BAR_COLOR, ACCENT_COLOR),
         sort_col="ENV(환경)",
         out_path=OUT_DIR / "3_분야별_환경역할_비율_막대.png",
@@ -572,6 +651,9 @@ def _field_code_table(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     # y축 n은 코드 등장 횟수 합이 아니라 논문 편수로 표시 - 코드를 2개 가진 논문도 1편으로 센다
     has_code = (ok["role_codes"].fillna("").str.strip() != "") | (ok["env_codes"].fillna("").str.strip() != "")
     paper_counts = ok.loc[has_code, "field_bucket"].value_counts()
+    included_fields = paper_counts[paper_counts >= 10].index
+    table = table.loc[table.index.intersection(included_fields)]
+    paper_counts = paper_counts.loc[included_fields]
     return table, paper_counts
 
 
@@ -714,7 +796,7 @@ def chart3_5_compact(df: pd.DataFrame) -> None:
 
 
 REFERENCE_FIELD = "사회학"  # 분야 간 거리(10·11번)의 기준 분야 - 연구의 중심 분야
-MIN_CODES_FOR_DISTANCE = 5  # 코드가 이보다 적은 분야는 비율 벡터가 불안정해서 거리 분석에서 뺀다
+MIN_CODES_FOR_DISTANCE = 10  # 코드가 이보다 적은 분야는 비율 벡터가 불안정해서 거리 분석에서 뺀다
 
 
 def _field_code_share(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
@@ -902,6 +984,7 @@ def main() -> None:
     df = load_merged()
     print(f"병합된 논문 수(발행년 있는 것만): {len(df)}")
 
+    chart0_classification_summary(df)
     chart1_overall_decade(df)
     chart2_field_decade_stacked(df)
     chart3_field_role_env_ratio_bar(df)
