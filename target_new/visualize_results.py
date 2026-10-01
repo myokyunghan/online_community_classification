@@ -683,7 +683,7 @@ def chart5b_field_fieldwindow_diverging(df: pd.DataFrame) -> None:
     plt.close(fig)
 
 
-def _field_code_table(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
+def _field_code_table(df: pd.DataFrame, min_papers: int = 10) -> tuple[pd.DataFrame, pd.Series]:
     """분야 x 개별 코드(11개) 등장 횟수 표와, 분야별 문헌 수(status=ERR/NO_ABSTRACT 제외)를
     만든다. 4번(11개 코드)과 4b번(2단계 그룹 4개) 히트맵이 같은 집계를 쓰도록 공통으로 뺐다.
 
@@ -717,7 +717,9 @@ def _field_code_table(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     # 열 순서: ROLE_FIELD_* -> ROLE_WINDOW_* -> ENV_* 순으로 고정 (원래 11개 코드 정의 순서와 맞춤)
     table = table.reindex(columns=ALL_CODES, fill_value=0)
 
-    included_fields = field_totals[field_totals >= 10].index
+    # min_papers: 히트맵에 개별 행으로 넣을 최소 문헌 수. 4b번은 작은 분야를 "그 외"로 합쳐서
+    # 보여주므로 0으로 불러 모든 분야를 받은 뒤 직접 합친다
+    included_fields = field_totals[field_totals >= min_papers].index
     table = table.loc[table.index.intersection(included_fields)]
     field_counts = field_totals.reindex(table.index).fillna(0).astype(int)
     return table, field_counts
@@ -749,20 +751,81 @@ CODE_GROUP_LABELS = {
 }
 
 
+# 사람이 직접 판정한 사회학 논문(golden). 첫 줄에 논문 정보 + 첫 라벨, 2·3번째 라벨은 그 아래 줄에
+# 논문명 없이 이어진다. 4b번 히트맵 맨 위에 "사회학(golden)" 행으로 따로 붙인다
+GOLDEN_XLSX = TARGET_DIR.parent / "full_golden.xlsx"
+GOLDEN_ROW_LABEL = "사회학"  # 패널 제목에 "사람 판정 (golden)"이 있어 행 이름엔 분야만
+
+
+def _golden_group_row() -> tuple[pd.DataFrame, pd.Series] | None:
+    """golden 엑셀을 코드 그룹(4개) 등장 횟수 1행 표와 논문 수로 만든다. 파일이 없으면 None."""
+    if not GOLDEN_XLSX.exists():
+        print(f"golden 파일 없음 - 4b 히트맵에 golden 행을 붙이지 않음: {GOLDEN_XLSX}")
+        return None
+    golden = pd.read_excel(GOLDEN_XLSX)
+    golden["paper"] = golden["논문명"].notna().cumsum()  # 논문명이 있는 줄마다 새 논문 시작
+    golden["title"] = golden["논문명"].ffill().str.replace(r"\s+", "", regex=True)
+
+    # 같은 논문이 2~3번 중복으로 들어 있는 경우가 있다(2026-10-01 기준 73건 중 14편이 중복, 라벨도
+    # 동일). 그대로 세면 라벨이 많은 논문이 2~3배로 집계되므로 제목(공백 제거) 기준 첫 번째만 쓴다
+    first_paper = golden.groupby("title")["paper"].transform("min")
+    deduped = golden[golden["paper"] == first_paper]
+    n_dup = golden["paper"].nunique() - deduped["paper"].nunique()
+    if n_dup:
+        print(f"golden: 중복 논문 {n_dup}건 제외 -> {deduped['paper'].nunique()}편")
+
+    labels = deduped["Golden label"].dropna().str.strip()
+    groups = labels.map(lambda code: "_".join(code.split("_")[:2]))
+    row = groups.value_counts().reindex(CODE_GROUPS, fill_value=0)
+    table = row.rename(GOLDEN_ROW_LABEL).to_frame().T
+    n = pd.Series({GOLDEN_ROW_LABEL: int(deduped["paper"].nunique())})
+    return table, n
+
+
+# 4b번 히트맵에서 따로 보여줄 주요 분야(이 순서대로 위에서부터) - 나머지는 "그 외" 한 행으로 합친다
+HEATMAP_MAIN_FIELDS = ["경영학", "신문방송학", "사회과학일반", "사회학"]
+OTHER_FIELDS_LABEL = "그 외"
+
+
 def chart4b_field_code_group_heatmap(df: pd.DataFrame) -> None:
     """4b. 분야별 x 코드 그룹(2단계) 히트맵 - 11개 코드를 이름 앞 두 단계(ROLE_FIELD / ROLE_WINDOW /
     ENV_COMMUNITY / ENV_ONLINE)로 묶어 합친다. 4번과 같은 집계를 열만 합친 것이라, 각 칸은 그 분야
     코드 중 해당 그룹이 차지하는 비율이고 y축 n은 그 분야의 role/env 코드 부여 문헌 수(포함 기준과 동일)다."""
-    table, field_counts = _field_code_table(df)
+    table, field_counts = _field_code_table(df, min_papers=0)  # 작은 분야도 받아서 "그 외"로 합친다
     grouped = table.T.groupby(lambda code: "_".join(code.split("_")[:2])).sum().T
     grouped = grouped.reindex(columns=CODE_GROUPS, fill_value=0)
     # 열이 4개뿐이라 칸이 좁아서 한 줄로 쓰면 이웃 라벨과 겹친다 - 위/아래 두 줄로 나눠 표시
     grouped.columns = [CODE_GROUP_LABELS[group] for group in grouped.columns]
+
+    # golden(사람 판정 사회학)이 있으면 위 패널이 사회학을 대표하므로, 아래 모델 패널에서는 사회학을
+    # 아예 뺀다("그 외"에도 넣지 않음) - 같은 분야가 위아래 두 번 나오지 않게
+    golden = _golden_group_row()
+    if golden is not None:
+        grouped = grouped.drop(index=REFERENCE_FIELD, errors="ignore")
+
+    # 주요 분야는 그대로, 나머지는 코드 수와 문헌 수를 더해 "그 외" 한 행으로 합친다. 작은 분야는
+    # 문헌이 몇 편뿐이라 비율이 극단적으로 튀어서(예: 인류학 1편 -> 100%) 따로 보여주면 오히려 헷갈린다
+    main = [f for f in HEATMAP_MAIN_FIELDS if f in grouped.index]
+    others = [f for f in grouped.index if f not in main]
+    rows = grouped.loc[main]
+    row_n = field_counts.reindex(main).fillna(0).astype(int)
+    if others:
+        rows = pd.concat([rows, grouped.loc[others].sum().rename(OTHER_FIELDS_LABEL).to_frame().T])
+        row_n[OTHER_FIELDS_LABEL] = int(field_counts.reindex(others).fillna(0).sum())
+        print(f"4b 히트맵 '{OTHER_FIELDS_LABEL}' 행에 합친 분야: {', '.join(others)}")
+
+    reference = None
+    if golden is not None:
+        golden_table, golden_n = golden
+        golden_table.columns = [CODE_GROUP_LABELS[group] for group in golden_table.columns]
+        reference = (golden_table, golden_n, "사람 판정 (golden)", "모델 판정")
+
     _draw_heatmap(
-        grouped,
+        rows,
         title="분야별 코드 그룹(4개) 등장 횟수",
         out_path=OUT_DIR / "4b_분야별_코드그룹_히트맵.png",
-        row_n=field_counts,
+        row_n=row_n,
+        reference=reference,
     )
 
 
@@ -774,41 +837,28 @@ def _row_normalize_pct(table: pd.DataFrame) -> pd.DataFrame:
     return table.div(row_sums.where(row_sums != 0, 1), axis=0) * 100
 
 
-def _draw_heatmap(
+def _heatmap_panel(
+    ax,
     table: pd.DataFrame,
-    title: str,
-    out_path: Path,
+    pct: pd.DataFrame,
+    row_totals: pd.Series,
+    norm,
+    cmap,
+    show_xticks: bool = True,
     rotate_xlabels: bool = False,
-    row_n: pd.Series | None = None,
-) -> None:
-    """table은 원자료(등장 횟수)를 받되, 실제 색상은 행(분야) 기준으로 정규화한 비율로
-    칠한다 - 분야별 문헌 수가 크게 달라서 원본 횟수로는 큰 분야만 도드라져 보이기 때문.
-    칸 안에는 비율(%)만 적는다(원자료 개수를 칸마다 같이 적으면 오히려 헷갈려서 뺌).
-    대신 행(분야)당 전체 원자료 합(n)을 y축 분야 이름에 "분야명(n=N)" 형태로 붙인다 - 표본이 1~2개뿐인
-    분야가 100%/0%로 극단적으로 보이는 착시(예: 논문 1편짜리 분야)를 바로 알아채기 위함.
-    row_n을 주면 원자료 합 대신 그 값(예: 분야별 논문 편수)을 n으로 쓴다.
-
-    색상은 PowerNorm(gamma<1)으로 매핑해서 낮은 값(0~20%대)도 색 차이가 잘 보이게 한다.
-    범례 상한(vmax)은 최소 50이지만, 실제 데이터 최댓값이 그보다 크면(예: 3번처럼 열이 2개뿐이라
-    한쪽이 80~100%까지 올라가는 경우) 그 최댓값까지 늘린다 - 안 그러면 범례는 50까지인데
-    칸에는 100%라고 적힌 값이 나와서 범례와 실제 숫자가 안 맞아 보이는 문제가 생긴다."""
-    pct = _row_normalize_pct(table)
-    vmax = max(50, pct.values.max() if pct.values.size else 0)
-    norm = PowerNorm(gamma=0.6, vmin=0, vmax=vmax, clip=True)
-
-    width = max(6, 1.1 * len(table.columns) + 2)
-    fig, ax = plt.subplots(figsize=(width, max(4, 0.55 * len(table) + 1.5)))
-    # 0인 칸(코드가 한 번도 안 나온 칸)은 색을 칠하지 않고 흰색으로 둔다 - 값이 있는 칸만 눈에 띄게
-    cmap = HEATMAP_CMAP.copy()
-    cmap.set_bad("white")
+):
+    """히트맵 한 패널을 ax에 그린다 - 0인 칸은 흰색 + 회색 "0%", 나머지는 비율(%)을 적는다."""
     masked = np.ma.masked_where(table.values == 0, pct.values)
     im = ax.imshow(masked, cmap=cmap, aspect="auto", norm=norm)
 
     ax.set_xticks(range(len(table.columns)))
-    ax.set_xticklabels(table.columns, fontsize=9)
-    if rotate_xlabels:
-        plt.setp(ax.get_xticklabels(), rotation=40, ha="right")
-    row_totals = row_n.reindex(table.index).fillna(0).astype(int) if row_n is not None else table.sum(axis=1)
+    if show_xticks:
+        ax.set_xticklabels(table.columns, fontsize=9)
+        if rotate_xlabels:
+            plt.setp(ax.get_xticklabels(), rotation=40, ha="right")
+    else:
+        ax.set_xticklabels([])
+        ax.tick_params(axis="x", length=0)
     ax.set_yticks(range(len(table.index)))
     ax.set_yticklabels([f"{field}(n={row_totals[field]})" for field in table.index], fontsize=10)
 
@@ -820,10 +870,75 @@ def _draw_heatmap(
                 continue
             color = "white" if norm(pct_val) > 0.6 else "black"
             ax.text(j, i, f"{pct_val:.0f}%", ha="center", va="center", color=color, fontsize=10)
+    return im
 
-    cbar = fig.colorbar(im, ax=ax, shrink=0.7, label="분야 내 비율(%)")
+
+def _draw_heatmap(
+    table: pd.DataFrame,
+    title: str,
+    out_path: Path,
+    rotate_xlabels: bool = False,
+    row_n: pd.Series | None = None,
+    reference: tuple[pd.DataFrame, pd.Series, str, str] | None = None,
+) -> None:
+    """table은 원자료(등장 횟수)를 받되, 실제 색상은 행(분야) 기준으로 정규화한 비율로
+    칠한다 - 분야별 문헌 수가 크게 달라서 원본 횟수로는 큰 분야만 도드라져 보이기 때문.
+    칸 안에는 비율(%)만 적는다(원자료 개수를 칸마다 같이 적으면 오히려 헷갈려서 뺌).
+    대신 행(분야)당 전체 원자료 합(n)을 y축 분야 이름에 "분야명(n=N)" 형태로 붙인다 - 표본이 1~2개뿐인
+    분야가 100%/0%로 극단적으로 보이는 착시(예: 논문 1편짜리 분야)를 바로 알아채기 위함.
+    row_n을 주면 원자료 합 대신 그 값(예: 분야별 논문 편수)을 n으로 쓴다.
+
+    reference=(표, n, 위 패널 제목, 아래 패널 제목)을 주면 그 표를 위쪽에 간격을 두고 별도 패널로
+    그린다(4b번의 사람 판정 golden 행용). 두 패널은 같은 색 기준(norm)과 컬러바 하나를 공유해서
+    색을 그대로 비교할 수 있다.
+
+    색상은 PowerNorm(gamma<1)으로 매핑해서 낮은 값(0~20%대)도 색 차이가 잘 보이게 한다.
+    범례 상한(vmax)은 최소 50이지만, 실제 데이터 최댓값이 그보다 크면(예: 3번처럼 열이 2개뿐이라
+    한쪽이 80~100%까지 올라가는 경우) 그 최댓값까지 늘린다 - 안 그러면 범례는 50까지인데
+    칸에는 100%라고 적힌 값이 나와서 범례와 실제 숫자가 안 맞아 보이는 문제가 생긴다."""
+    pct = _row_normalize_pct(table)
+    row_totals = row_n.reindex(table.index).fillna(0).astype(int) if row_n is not None else table.sum(axis=1)
+    ref_pct = _row_normalize_pct(reference[0]) if reference is not None else None
+
+    # 상한을 10 단위로 올림한다 - 최댓값(예: 62%) 그대로 두면 matplotlib이 상한을 넘는 눈금(70)을
+    # 컬러바 끝에 붙여 60과 겹쳐 보인다. 눈금도 상한까지 직접 지정한다(아래 cbar.set_ticks).
+    # reference가 있으면 두 패널 중 큰 값 기준으로 잡아 같은 색이 같은 비율을 뜻하게 한다
+    max_pct = max(pct.values.max() if pct.values.size else 0, ref_pct.values.max() if ref_pct is not None else 0)
+    vmax = max(50, int(np.ceil(max_pct / 10) * 10))
+    norm = PowerNorm(gamma=0.6, vmin=0, vmax=vmax, clip=True)
+    # 0인 칸(코드가 한 번도 안 나온 칸)은 색을 칠하지 않고 흰색으로 둔다 - 값이 있는 칸만 눈에 띄게
+    cmap = HEATMAP_CMAP.copy()
+    cmap.set_bad("white")
+
+    width = max(6, 1.1 * len(table.columns) + 2)
+    if reference is None:
+        fig, ax = plt.subplots(figsize=(width, max(4, 0.55 * len(table) + 1.5)))
+        im = _heatmap_panel(ax, table, pct, row_totals, norm, cmap, rotate_xlabels=rotate_xlabels)
+        cbar_axes = ax
+        n_rows = len(table.index)
+    else:
+        ref_table, ref_n, ref_title, main_title = reference
+        ref_totals = ref_n.reindex(ref_table.index).fillna(0).astype(int)
+        n_ref, n_main = len(ref_table), len(table)
+        fig, (ax_ref, ax) = plt.subplots(
+            2, 1, figsize=(width, 0.55 * (n_ref + n_main) + 2.4),
+            gridspec_kw={"height_ratios": [n_ref, n_main]}, layout="constrained",
+        )
+        fig.get_layout_engine().set(hspace=0.08)  # 두 패널 사이 간격 - golden과 모델 결과를 구분
+        _heatmap_panel(ax_ref, ref_table, ref_pct, ref_totals, norm, cmap, show_xticks=False)
+        im = _heatmap_panel(ax, table, pct, row_totals, norm, cmap, rotate_xlabels=rotate_xlabels)
+        ax_ref.set_title(ref_title, loc="left", fontsize=9, color="#555555")
+        ax.set_title(main_title, loc="left", fontsize=9, color="#555555")
+        cbar_axes = [ax_ref, ax]
+        n_rows = n_ref + n_main
+
+    cbar = fig.colorbar(im, ax=cbar_axes, shrink=0.7, label="분야 내 비율(%)")
+    # 행이 적은 히트맵은 컬러바가 짧아서 10 단위 눈금이 위쪽에서 겹친다 - 그때는 20 단위로
+    tick_step = 10 if vmax <= 70 and n_rows >= 5 else 20
+    cbar.set_ticks(list(range(0, vmax + 1, tick_step)))
     cbar.outline.set_edgecolor("#999999")
-    fig.tight_layout()
+    if reference is None:
+        fig.tight_layout()
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
 
