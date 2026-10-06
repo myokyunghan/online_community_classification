@@ -714,8 +714,11 @@ def _field_code_table(df: pd.DataFrame, min_papers: int = 10) -> tuple[pd.DataFr
         order.append("기타")
     table = table.reindex(order).fillna(0).astype(int)
 
-    # 열 순서: ROLE_FIELD_* -> ROLE_WINDOW_* -> ENV_* 순으로 고정 (원래 11개 코드 정의 순서와 맞춤)
-    table = table.reindex(columns=ALL_CODES, fill_value=0)
+    # 히트맵 열 순서는 창(ROLE_WINDOW_*) -> 장(ROLE_FIELD_*) -> ENV_* (4b번 그룹 순서와 맞춤)
+    heatmap_order = [c for c in ALL_CODES if c.startswith("ROLE_WINDOW")] + [
+        c for c in ALL_CODES if not c.startswith("ROLE_WINDOW")
+    ]
+    table = table.reindex(columns=heatmap_order, fill_value=0)
 
     # min_papers: 히트맵에 개별 행으로 넣을 최소 문헌 수. 4b번은 작은 분야를 "그 외"로 합쳐서
     # 보여주므로 0으로 불러 모든 분야를 받은 뒤 직접 합친다
@@ -739,7 +742,7 @@ def chart4_field_all_codes_heatmap(df: pd.DataFrame) -> None:
 
 
 # 코드 이름 앞 두 단계로 묶은 그룹 - 4b번 히트맵 x축 순서
-CODE_GROUPS = ["ROLE_FIELD", "ROLE_WINDOW", "ENV_COMMUNITY", "ENV_ONLINE"]
+CODE_GROUPS = ["ROLE_WINDOW", "ROLE_FIELD", "ENV_COMMUNITY", "ENV_ONLINE"]  # 히트맵 열 순서: 창 -> 장 -> 환경
 
 # 4b번 히트맵 x축 틱 라벨 - 코드명 그대로가 아니라 "역할적/환경적 측면"이라는 상위 축 이름을
 # 위 줄에, 장/창/커뮤니티/온라인이라는 하위 구분을 아래 줄에 적는다
@@ -757,14 +760,17 @@ GOLDEN_XLSX = TARGET_DIR.parent / "full_golden.xlsx"
 GOLDEN_ROW_LABEL = "사회학"  # 패널 제목에 "사람 판정 (golden)"이 있어 행 이름엔 분야만
 
 
-def _golden_group_row() -> tuple[pd.DataFrame, pd.Series] | None:
-    """golden 엑셀을 코드 그룹(4개) 등장 횟수 1행 표와 논문 수로 만든다. 파일이 없으면 None."""
+def _load_golden() -> pd.DataFrame | None:
+    """golden 엑셀을 읽어 중복 논문을 뺀 라벨 행(한 줄 = 라벨 하나)을 돌려준다. paper 열이 논문 번호,
+    연도 열은 그 논문의 첫 줄 값으로 채운다. 파일이 없으면 None. 4b 히트맵과 12번 연도 그래프가 같은
+    56편을 쓰도록 공통으로 뺐다."""
     if not GOLDEN_XLSX.exists():
-        print(f"golden 파일 없음 - 4b 히트맵에 golden 행을 붙이지 않음: {GOLDEN_XLSX}")
+        print(f"golden 파일 없음 - golden 기반 그래프(4b 위 패널, 12번)를 건너뜀: {GOLDEN_XLSX}")
         return None
     golden = pd.read_excel(GOLDEN_XLSX)
     golden["paper"] = golden["논문명"].notna().cumsum()  # 논문명이 있는 줄마다 새 논문 시작
     golden["title"] = golden["논문명"].ffill().str.replace(r"\s+", "", regex=True)
+    golden["연도"] = golden["연도"].ffill()
 
     # 같은 논문이 2~3번 중복으로 들어 있는 경우가 있다(2026-10-01 기준 73건 중 14편이 중복, 라벨도
     # 동일). 그대로 세면 라벨이 많은 논문이 2~3배로 집계되므로 제목(공백 제거) 기준 첫 번째만 쓴다
@@ -773,13 +779,54 @@ def _golden_group_row() -> tuple[pd.DataFrame, pd.Series] | None:
     n_dup = golden["paper"].nunique() - deduped["paper"].nunique()
     if n_dup:
         print(f"golden: 중복 논문 {n_dup}건 제외 -> {deduped['paper'].nunique()}편")
+    return deduped
 
+
+def _golden_group_row() -> tuple[pd.DataFrame, pd.Series] | None:
+    """golden 라벨을 코드 그룹(4개) 등장 횟수 1행 표와 논문 수로 만든다. 파일이 없으면 None."""
+    deduped = _load_golden()
+    if deduped is None:
+        return None
     labels = deduped["Golden label"].dropna().str.strip()
     groups = labels.map(lambda code: "_".join(code.split("_")[:2]))
     row = groups.value_counts().reindex(CODE_GROUPS, fill_value=0)
     table = row.rename(GOLDEN_ROW_LABEL).to_frame().T
     n = pd.Series({GOLDEN_ROW_LABEL: int(deduped["paper"].nunique())})
     return table, n
+
+
+# 12번 그래프의 출간 연도 구간 - 5년 단위, 2004년부터(golden 최초 논문 연도)
+GOLDEN_PERIOD_BINS = [(2004, 2008), (2009, 2013), (2014, 2018), (2019, 2023), (2024, 2028)]
+
+
+def chart12_golden_sociology_period() -> None:
+    """12. 사람이 판정한 사회학 논문(golden, 중복 제거) 출간 연도별 문헌 수 - 단일 막대그래프.
+    4b 히트맵 위 패널과 같은 논문 집합이다. 스타일은 1·6·8번 시기별 막대그래프와 같다."""
+    deduped = _load_golden()
+    if deduped is None:
+        return
+    years = deduped.groupby("paper")["연도"].first().astype(int)
+    labels = [f"{start}~{end}" for start, end in GOLDEN_PERIOD_BINS]
+    counts = pd.Series(
+        [int(((years >= start) & (years <= end)).sum()) for start, end in GOLDEN_PERIOD_BINS], index=labels
+    )
+    outside = len(years) - counts.sum()
+    if outside:
+        print(f"경고: 12번 그래프 구간({GOLDEN_PERIOD_BINS[0][0]}~{GOLDEN_PERIOD_BINS[-1][1]}) 밖 논문 {outside}편은 빠짐")
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+    bars = ax.bar(counts.index, counts.values, color=BAR_COLOR, width=0.6)
+    ax.bar_label(bars, padding=3, fontsize=13)
+
+    # 논문 그림으로 쓸 때 잘 보이게 축 제목·눈금 글씨를 기본(10)보다 키운다
+    ax.set_xlabel("발행 시기", fontsize=14)
+    ax.set_ylabel("논문 수", fontsize=14)
+    ax.tick_params(axis="both", labelsize=12)
+    plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
+    ax.spines[["top", "right"]].set_visible(False)
+    fig.tight_layout()
+    fig.savefig(OUT_DIR / "12_사회학_사람판정_시기별_문헌수.png", dpi=150)
+    plt.close(fig)
 
 
 # 4b번 히트맵에서 따로 보여줄 주요 분야(이 순서대로 위에서부터) - 나머지는 "그 외" 한 행으로 합친다
@@ -818,7 +865,7 @@ def chart4b_field_code_group_heatmap(df: pd.DataFrame) -> None:
     if golden is not None:
         golden_table, golden_n = golden
         golden_table.columns = [CODE_GROUP_LABELS[group] for group in golden_table.columns]
-        reference = (golden_table, golden_n, "사람 판정 (golden)", "모델 판정")
+        reference = (golden_table, golden_n, "사람 판정", "LLM 분류기 판정")
 
     _draw_heatmap(
         rows,
@@ -1189,11 +1236,12 @@ def main() -> None:
     chart7_field_err_rate_bar(df)
     chart7_field_err_rate_bar(load_merged(excluded=True), "7c_화이트리스트_제외분야_ERR_비율.png")
     chart8_window_decade(df)
+    chart12_golden_sociology_period()
     chart9_all_codes_count_bar(df)
     chart10_field_distance_heatmap(df)
     chart11_field_distance_map(df)
 
-    print(f"완료 - {OUT_DIR} 아래 17개 PNG(+합본·압축본 PDF) 생성됨")
+    print(f"완료 - {OUT_DIR} 아래 18개 PNG(+합본·압축본 PDF) 생성됨")
 
 
 if __name__ == "__main__":
